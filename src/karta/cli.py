@@ -194,6 +194,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="allow ZIP downloads of folders",
     )
     parser.add_argument(
+        "--max-zip-size",
+        default=100,
+        type=int,
+        help="maximum ZIP archive size in MB (default: 100)",
+    )
+    parser.add_argument(
         "--enable-upload",
         action="store_true",
         default=False,
@@ -259,6 +265,7 @@ def build_config(args: argparse.Namespace) -> Config:
         password=password,
         show_hidden=args.show_hidden,
         enable_zip_download=args.enable_zip_download,
+        max_zip_size=args.max_zip_size * 1024 * 1024,
         enable_upload=enable_upload,
     )
 

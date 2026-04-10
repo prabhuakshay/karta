@@ -39,6 +39,7 @@ def config(serve_dir):
         password=None,
         show_hidden=False,
         enable_zip_download=False,
+        max_zip_size=104857600,
         enable_upload=False,
     )
 

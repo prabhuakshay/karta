@@ -20,6 +20,7 @@ class Config:
         password: HTTP Basic Auth password, or ``None`` if auth is disabled.
         show_hidden: Whether dotfiles and dotdirs appear in listings.
         enable_zip_download: Whether on-the-fly ZIP downloads of folders are allowed.
+        max_zip_size: Maximum size in bytes for generated ZIP archives.
         enable_upload: Whether file uploads are accepted.
     """
 
@@ -30,4 +31,5 @@ class Config:
     password: str | None
     show_hidden: bool
     enable_zip_download: bool
+    max_zip_size: int
     enable_upload: bool
