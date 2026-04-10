@@ -126,6 +126,7 @@ def render_directory_listing(
     base_dir: Path,
     request_path: str,
     auth_enabled: bool = False,
+    enable_zip_download: bool = False,
 ) -> str:
     """Render a complete HTML page for a directory listing.
 
@@ -135,6 +136,7 @@ def render_directory_listing(
         base_dir: The served root directory.
         request_path: The original URL path from the request.
         auth_enabled: Whether to show the logout button.
+        enable_zip_download: Whether to show the ZIP download link.
 
     Returns:
         Complete HTML page as a string.
@@ -188,6 +190,17 @@ def render_directory_listing(
             "This directory is empty</p></div>"
         )
 
+    zip_html = ""
+    if enable_zip_download:
+        raw = request_path.rstrip("/") + "/?zip" if request_path != "/" else "/?zip"
+        zip_href = html.escape(raw)
+        zip_html = (
+            f'<a href="{zip_href}" class="text-xs text-ink-400'
+            " hover:text-sage-500 transition-colors duration-150"
+            ' whitespace-nowrap ml-4" title="Download as ZIP">'
+            "Download ZIP</a>"
+        )
+
     logout_html = ""
     if auth_enabled:
         logout_html = (
@@ -200,6 +213,7 @@ def render_directory_listing(
         dir_name=dir_name,
         breadcrumb_html=breadcrumb_html,
         summary=summary,
+        zip_html=zip_html,
         logout_html=logout_html,
         table_rows=table_rows,
         card_items=card_items,
@@ -247,6 +261,7 @@ _PAGE_TEMPLATE = """\
           whitespace-nowrap hidden sm:block">
           {summary}
         </span>
+        {zip_html}
         {logout_html}
       </div>
     </div>

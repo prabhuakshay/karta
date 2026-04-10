@@ -223,6 +223,39 @@ class TestRenderDirectoryListing:
         )
         assert "This directory is empty" in page
 
+    def test_zip_link_shown_when_enabled(self, tmp_path):
+        page = render_directory_listing(
+            path=tmp_path,
+            entries=[],
+            base_dir=tmp_path,
+            request_path="/",
+            enable_zip_download=True,
+        )
+        assert "Download ZIP" in page
+        assert "?zip" in page
+
+    def test_zip_link_hidden_when_disabled(self, tmp_path):
+        page = render_directory_listing(
+            path=tmp_path,
+            entries=[],
+            base_dir=tmp_path,
+            request_path="/",
+            enable_zip_download=False,
+        )
+        assert "Download ZIP" not in page
+
+    def test_zip_link_href_for_subdirectory(self, tmp_path):
+        sub = tmp_path / "builds"
+        sub.mkdir()
+        page = render_directory_listing(
+            path=sub,
+            entries=[],
+            base_dir=tmp_path,
+            request_path="/builds/",
+            enable_zip_download=True,
+        )
+        assert "/builds/?zip" in page
+
 
 # -- icon_for_entry ----------------------------------------------------------
 

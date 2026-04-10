@@ -258,6 +258,7 @@ class KartaHandler(BaseHTTPRequestHandler):
             base_dir=self.config.directory,
             request_path=request_path,
             auth_enabled=self._auth_enabled(),
+            enable_zip_download=self.config.enable_zip_download,
         )
         body = page.encode()
         self.send_response(200)
