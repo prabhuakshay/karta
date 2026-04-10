@@ -95,7 +95,7 @@ class KartaHandler(BaseHTTPRequestHandler):
             or valid credentials were provided). ``False`` if a 401
             response was sent.
         """
-        if self.config.username is None:
+        if self.config.username is None or self.config.password is None:
             return True
 
         header = self.headers.get("Authorization")
