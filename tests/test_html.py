@@ -10,13 +10,13 @@ from karta.html import (
 )
 from karta.html_entries import (
     _ext_badge,
-    _file_type_color,
     entry_href,
     format_date,
     format_size,
     render_entry_card,
     render_entry_row,
 )
+from karta.html_icons import icon_for_entry
 
 
 # -- Fixtures ----------------------------------------------------------------
@@ -224,30 +224,55 @@ class TestRenderDirectoryListing:
         assert "This directory is empty" in page
 
 
-# -- _file_type_color --------------------------------------------------------
+# -- icon_for_entry ----------------------------------------------------------
 
 
-class TestFileTypeColor:
-    def test_python(self):
-        assert "sage" in _file_type_color("main.py")
+class TestIconForEntry:
+    def test_folder_icon(self):
+        svg = icon_for_entry("docs", is_dir=True)
+        assert "text-sage-400" in svg
+        assert 'fill="currentColor"' in svg
 
-    def test_config(self):
-        assert "amber" in _file_type_color("config.toml")
+    def test_python_icon(self):
+        svg = icon_for_entry("main.py", is_dir=False)
+        assert "text-sage-400" in svg
+        assert "12.5" in svg
 
-    def test_document(self):
-        assert "cyan" in _file_type_color("readme.md")
+    def test_js_icon(self):
+        svg = icon_for_entry("app.js", is_dir=False)
+        assert "text-amber-500" in svg
 
-    def test_image(self):
-        assert "ruby" in _file_type_color("photo.png")
+    def test_config_icon(self):
+        svg = icon_for_entry("config.toml", is_dir=False)
+        assert "text-amber-500" in svg
 
-    def test_archive(self):
-        assert "ink-500" in _file_type_color("backup.zip")
+    def test_document_icon(self):
+        svg = icon_for_entry("readme.md", is_dir=False)
+        assert "text-cyan-500" in svg
 
-    def test_unknown(self):
-        assert "ink-300" in _file_type_color("data.xyz")
+    def test_image_icon(self):
+        svg = icon_for_entry("photo.png", is_dir=False)
+        assert "text-ruby-500" in svg
 
-    def test_no_extension(self):
-        assert "ink-300" in _file_type_color("Makefile")
+    def test_archive_icon(self):
+        svg = icon_for_entry("backup.zip", is_dir=False)
+        assert "text-ink-500" in svg
+
+    def test_unknown_fallback(self):
+        svg = icon_for_entry("data.xyz", is_dir=False)
+        assert "text-ink-300" in svg
+
+    def test_shell_icon(self):
+        svg = icon_for_entry("deploy.sh", is_dir=False)
+        assert "text-sage-400" in svg
+
+    def test_markup_icon(self):
+        svg = icon_for_entry("index.html", is_dir=False)
+        assert "text-ruby-500" in svg
+
+    def test_css_icon(self):
+        svg = icon_for_entry("style.css", is_dir=False)
+        assert "text-cyan-500" in svg
 
 
 # -- _ext_badge --------------------------------------------------------------

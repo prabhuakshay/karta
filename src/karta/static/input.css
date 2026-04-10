@@ -2,6 +2,7 @@
 
 @source "../html.py";
 @source "../html_entries.py";
+@source "../html_icons.py";
 
 @theme {
   --color-surface-0: #EFEBE4;
