@@ -225,12 +225,20 @@ class KartaHandler(BaseHTTPRequestHandler):
         self.send_header("Location", location)
         self.end_headers()
 
+    def _cache_header(self, public_max_age: str | None = None) -> None:
+        """Set Cache-Control: no-store when auth is on, else use the given policy."""
+        if self._auth_enabled():
+            self.send_header("Cache-Control", "no-store")
+        elif public_max_age:
+            self.send_header("Cache-Control", f"public, max-age={public_max_age}")
+
     def _serve_file(self, path: Path) -> None:
         """Serve a file with correct Content-Type and Content-Length."""
         content, content_type = read_file(path)
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(content)))
+        self._cache_header()
         self.end_headers()
         self.wfile.write(content)
 
@@ -248,6 +256,7 @@ class KartaHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        self._cache_header()
         self.end_headers()
         self.wfile.write(body)
 
@@ -276,7 +285,7 @@ class KartaHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(content)))
-        self.send_header("Cache-Control", "public, max-age=86400")
+        self._cache_header("86400")
         self.end_headers()
         self.wfile.write(content)
 
@@ -285,7 +294,7 @@ class KartaHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "image/svg+xml")
         self.send_header("Content-Length", str(len(_FAVICON_SVG)))
-        self.send_header("Cache-Control", "public, max-age=86400")
+        self._cache_header("86400")
         self.end_headers()
         self.wfile.write(_FAVICON_SVG)
 
