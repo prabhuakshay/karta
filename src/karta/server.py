@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
 
+from karta.auth import check_basic_auth
 from karta.config import Config
 from karta.fs import list_directory, read_file, resolve_safe_path
 from karta.html import render_directory_listing
@@ -86,8 +87,53 @@ class KartaHandler(BaseHTTPRequestHandler):
         self.config = config
         super().__init__(request, client_address, server)
 
+    def _check_auth(self) -> bool:
+        """Check Basic Auth if credentials are configured.
+
+        Returns:
+            ``True`` if the request is authorized (either auth is disabled
+            or valid credentials were provided). ``False`` if a 401
+            response was sent.
+        """
+        if self.config.username is None:
+            return True
+
+        header = self.headers.get("Authorization")
+        if check_basic_auth(header, self.config.username, self.config.password):
+            return True
+
+        self._send_401()
+        return False
+
+    def _send_401(self) -> None:
+        """Send a 401 Unauthorized response with the WWW-Authenticate header."""
+        body = (
+            "<!doctype html>"
+            "<html><head><meta charset='utf-8'>"
+            "<title>401 — Unauthorized</title>"
+            "<style>"
+            "body{font-family:system-ui,sans-serif;display:flex;"
+            "justify-content:center;align-items:center;min-height:100vh;"
+            "margin:0;background:#0f172a;color:#94a3b8}"
+            "div{text-align:center}"
+            "h1{font-size:3rem;color:#f1f5f9;margin:0 0 .5rem}"
+            "p{font-size:1.1rem;margin:0}"
+            "</style></head><body><div>"
+            "<h1>401</h1><p>Valid credentials required.</p>"
+            "</div></body></html>"
+        ).encode()
+        self.send_response(401)
+        self.send_header("WWW-Authenticate", 'Basic realm="karta"')
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self) -> None:
         """Handle GET requests: serve files, directories, or static assets."""
+        if not self._check_auth():
+            return
+
         if self.path == "/favicon.ico":
             self._serve_favicon()
             return

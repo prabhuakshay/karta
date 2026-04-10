@@ -46,7 +46,12 @@ def check_basic_auth(
 
     username, password = decoded.split(":", maxsplit=1)
 
-    username_match = hmac.compare_digest(username, expected_username)
-    password_match = hmac.compare_digest(password, expected_password)
+    # Compare as bytes — hmac.compare_digest() rejects non-ASCII str
+    username_match = hmac.compare_digest(
+        username.encode("utf-8"), expected_username.encode("utf-8")
+    )
+    password_match = hmac.compare_digest(
+        password.encode("utf-8"), expected_password.encode("utf-8")
+    )
 
     return username_match and password_match
