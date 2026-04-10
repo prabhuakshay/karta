@@ -242,6 +242,7 @@ class KartaHandler(BaseHTTPRequestHandler):
             entries=entries,
             base_dir=self.config.directory,
             request_path=request_path,
+            auth_enabled=self._auth_enabled(),
         )
         body = page.encode()
         self.send_response(200)

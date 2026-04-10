@@ -269,6 +269,21 @@ class TestLoginFlow:
         assert status == 200
         assert resp_body == b"top secret"
 
+    def test_directory_listing_shows_logout(self, auth_server):
+        body = urlencode({"username": "alice", "password": "secret"}).encode()
+        _, headers, _ = _request(
+            auth_server,
+            "/_karta/login",
+            method="POST",
+            body=body,
+            content_type="application/x-www-form-urlencoded",
+        )
+        cookie = headers["Set-Cookie"].split(";")[0]
+        status, _, resp_body = _request(auth_server, "/", cookie=cookie)
+        assert status == 200
+        assert b"Sign out" in resp_body
+        assert b"/_karta/logout" in resp_body
+
 
 class TestLogout:
     def test_logout_clears_cookie_and_redirects(self, auth_server):
