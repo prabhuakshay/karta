@@ -218,15 +218,17 @@ def _print_startup_banner(config: Config) -> None:
     serving = _styled("Serving", "1;36")
 
     auth_status = _on(f"enabled (user: {config.username})") if config.username else _off("disabled")
-    features = []
-    features.append(f"uploads: {_on('enabled') if config.enable_upload else _off('disabled')}")
-    features.append(
-        f"zip downloads: {_on('enabled') if config.enable_zip_download else _off('disabled')}"
-    )
-    features.append(f"hidden files: {_on('visible') if config.show_hidden else _off('hidden')}")
+    upload_status = _on("enabled") if config.enable_upload else _off("disabled")
+    zip_status = _on("enabled") if config.enable_zip_download else _off("disabled")
+    hidden_status = _on("visible") if config.show_hidden else _off("hidden")
 
-    print(f"{serving} {directory} on {url}")
-    print(f"  auth: {auth_status} | {' | '.join(features)}")
+    print(f"{serving} {directory}")
+    print(f"  {url}")
+    print()
+    print(f"  auth:          {auth_status}")
+    print(f"  uploads:       {upload_status}")
+    print(f"  zip downloads: {zip_status}")
+    print(f"  hidden files:  {hidden_status}")
 
 
 def build_config(args: argparse.Namespace) -> Config:

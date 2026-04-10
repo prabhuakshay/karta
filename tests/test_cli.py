@@ -245,11 +245,12 @@ class TestPrintStartupBanner:
         )
         _print_startup_banner(config)
         output = capsys.readouterr().out
-        assert f"Serving {tmp_path} on http://127.0.0.1:8000" in output
-        assert "auth: disabled" in output
-        assert "uploads: disabled" in output
+        assert f"Serving {tmp_path}" in output
+        assert "http://127.0.0.1:8000" in output
+        assert "auth:          disabled" in output
+        assert "uploads:       disabled" in output
         assert "zip downloads: disabled" in output
-        assert "hidden files: hidden" in output
+        assert "hidden files:  hidden" in output
 
     def test_banner_with_auth(self, tmp_path, capsys):
         config = Config(
@@ -265,10 +266,10 @@ class TestPrintStartupBanner:
         _print_startup_banner(config)
         output = capsys.readouterr().out
         assert "http://0.0.0.0:9000" in output
-        assert "auth: enabled (user: alice)" in output
-        assert "uploads: enabled" in output
+        assert "auth:          enabled (user: alice)" in output
+        assert "uploads:       enabled" in output
         assert "zip downloads: enabled" in output
-        assert "hidden files: visible" in output
+        assert "hidden files:  visible" in output
 
 
 # -- build_config -----------------------------------------------------------
