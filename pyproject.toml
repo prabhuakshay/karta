@@ -1,0 +1,124 @@
+[project]
+name = "karta"
+version = "0.1.0"
+description = "Zero-dependency Python CLI for sharing local directories over HTTP with authentication, file browsing, and ZIP downloads"
+readme = "README.md"
+authors = [
+    { name = "Akshay Prabhu", email = "akshay.prabhu.mulki@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = []
+
+[project.scripts]
+karta = "karta:main"
+
+[build-system]
+requires = ["uv_build>=0.10.12,<0.11.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "prek>=0.3.8",
+    "ruff>=0.15.10",
+    "ty>=0.0.29",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "N",      # pep8-naming
+    "UP",     # pyupgrade — modernize syntax
+    "B",      # flake8-bugbear — common bugs and design problems
+    "A",      # flake8-builtins — shadowing builtins
+    "C4",     # flake8-comprehensions — better comprehensions
+    "DTZ",    # flake8-datetimez — enforce timezone-aware datetimes
+    "ISC",    # flake8-implicit-str-concat
+    "ICN",    # flake8-import-conventions
+    "PIE",    # flake8-pie — misc lints
+    "Q",      # flake8-quotes — enforce double quotes
+    "RET",    # flake8-return — return statement issues
+    "SLF",    # flake8-self — private member access
+    "SIM",    # flake8-simplify
+    "TID",    # flake8-tidy-imports — ban relative imports, etc.
+    "TCH",    # flake8-type-checking — move typing-only imports behind TYPE_CHECKING
+    "ARG",    # flake8-unused-arguments
+    "ERA",    # eradicate — commented-out code
+    "PL",     # pylint subset (convention, error, refactor, warning)
+    "TRY",    # tryceratops — exception handling anti-patterns
+    "FLY",    # flynt — prefer f-strings
+    "PERF",   # perflint — performance anti-patterns
+    "LOG",    # flake8-logging — logging best practices
+    "RUF",    # ruff-specific rules
+    "D",      # pydocstyle — docstring enforcement
+    "ANN",    # flake8-annotations — type annotation enforcement
+    "S",      # flake8-bandit — security checks
+    "T20",    # flake8-print — no print() in production code
+    "PT",     # flake8-pytest-style
+]
+ignore = [
+    "D100",    # missing docstring in public module — too noisy
+    "D104",    # missing docstring in public package
+    "D106",    # missing docstring in public nested class
+    "D203",    # one-blank-line-before-class (conflicts with D211)
+    "D213",    # multi-line-summary-second-line (conflicts with D212)
+    "ANN401",  # dynamically typed expressions (typing.Any) — sometimes necessary
+    "TRY003",  # long exception messages — often the clearest approach
+    "ISC001",  # single-line implicit string concat — conflicts with formatter
+    "S101",    # assert used — fine in tests, handled by per-file-ignores
+    "PLR0913", # too many arguments — sometimes unavoidable
+    "PLR2004", # magic value comparison — too many false positives
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101",    # assert is the point of tests
+    "D",       # docstrings not required in tests
+    "ANN",     # type annotations not required in tests
+    "ARG",     # unused arguments common in fixtures
+    "PLR2004", # magic values fine in tests
+    "T20",     # print() OK in tests for debugging
+    "SLF001",  # private member access OK in tests
+]
+"**/conftest.py" = ["D", "ANN", "ARG"]
+# CLI entry points use print() as primary output
+"src/karta/__init__.py" = ["T20"]
+"src/karta/cli.py" = ["T20"]
+"src/karta/__main__.py" = ["T20"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["karta"]
+force-single-line = false
+lines-after-imports = 2
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "double"
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-base-classes = []
+
+[tool.ruff.lint.pylint]
+max-args = 8
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = true
+
+[tool.ty.environment]
+python-version = "3.13"

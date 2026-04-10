@@ -1,0 +1,12 @@
+[default]
+extend-ignore-re = [
+    # UUIDs
+    "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+]
+
+[files]
+extend-exclude = [
+    "*.lock",
+    "*.min.js",
+    "*.min.css",
+]

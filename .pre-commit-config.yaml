@@ -1,0 +1,54 @@
+default_install_hook_types:
+  - pre-commit
+  - commit-msg
+
+repos:
+  # -- File hygiene ----------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: "v6.0.0"
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-toml
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=1000"]
+      - id: detect-private-key
+      - id: debug-statements
+      - id: no-commit-to-branch
+        args: [--branch, main, --branch, master]
+
+  # -- Linting & formatting ---------------------------------------------------
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: "v0.15.10"
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  # -- Lock file sync ---------------------------------------------------------
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: "0.11.6"
+    hooks:
+      - id: uv-lock
+
+  # -- Security ----------------------------------------------------------------
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: "v8.30.1"
+    hooks:
+      - id: gitleaks
+
+  # -- Spell checking ----------------------------------------------------------
+  - repo: https://github.com/crate-ci/typos
+    rev: "v1.45.0"
+    hooks:
+      - id: typos
+
+  # -- Commit message -----------------------------------------------------------
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: "v4.4.0"
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
