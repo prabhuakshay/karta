@@ -125,6 +125,7 @@ def render_directory_listing(
     entries: list[FileEntry],
     base_dir: Path,
     request_path: str,
+    auth_enabled: bool = False,
 ) -> str:
     """Render a complete HTML page for a directory listing.
 
@@ -133,6 +134,7 @@ def render_directory_listing(
         entries: Sorted list of ``FileEntry`` objects.
         base_dir: The served root directory.
         request_path: The original URL path from the request.
+        auth_enabled: Whether to show the logout button.
 
     Returns:
         Complete HTML page as a string.
@@ -186,10 +188,19 @@ def render_directory_listing(
             "This directory is empty</p></div>"
         )
 
+    logout_html = ""
+    if auth_enabled:
+        logout_html = (
+            '<a href="/_karta/logout" class="text-xs text-ink-400'
+            " hover:text-sage-500 transition-colors duration-150"
+            ' whitespace-nowrap ml-4" title="Sign out">Sign out</a>'
+        )
+
     return _PAGE_TEMPLATE.format(
         dir_name=dir_name,
         breadcrumb_html=breadcrumb_html,
         summary=summary,
+        logout_html=logout_html,
         table_rows=table_rows,
         card_items=card_items,
         empty_state=empty_state,
@@ -231,10 +242,13 @@ _PAGE_TEMPLATE = """\
           {breadcrumb_html}
         </nav>
       </div>
-      <span class="text-xs text-ink-400 tabular-nums
-        whitespace-nowrap ml-4 hidden sm:block">
-        {summary}
-      </span>
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-ink-400 tabular-nums
+          whitespace-nowrap hidden sm:block">
+          {summary}
+        </span>
+        {logout_html}
+      </div>
     </div>
   </header>
 
