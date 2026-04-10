@@ -326,8 +326,13 @@ class TestBuildConfig:
 
 class TestMain:
     def test_main_runs(self, tmp_path, capsys):
-        with patch("sys.argv", ["karta", str(tmp_path)]), patch.dict("os.environ", {}, clear=True):
+        with (
+            patch("sys.argv", ["karta", str(tmp_path)]),
+            patch.dict("os.environ", {}, clear=True),
+            patch("karta.cli.run_server") as mock_server,
+        ):
             main()
         output = capsys.readouterr().out
         assert f"Serving {tmp_path.resolve()}" in output
         assert "http://127.0.0.1:8000" in output
+        mock_server.assert_called_once()

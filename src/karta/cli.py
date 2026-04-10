@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from karta.config import Config
+from karta.server import run_server
 
 
 # -- ANSI styling helpers --------------------------------------------------
@@ -268,3 +269,4 @@ def main() -> None:
     args = parser.parse_args()
     config = build_config(args)
     _print_startup_banner(config)
+    run_server(config)

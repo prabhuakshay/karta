@@ -1,6 +1,12 @@
-# karta
+<p align="center">
+  <img src="assets/karta-icon.jpg" alt="karta" width="120">
+</p>
 
+<h1 align="center">karta</h1>
+
+<p align="center">
 Zero-dependency Python CLI for sharing local directories over HTTP with authentication, file browsing, and ZIP downloads.
+</p>
 
 `python -m http.server` is great for quick local sharing, but it lacks basic protections and convenience features — no authentication, no way to download folders, no upload support, no control over what's visible. karta fills that gap. It's a single command that serves any directory with a clean browser interface, HTTP Basic Auth, optional uploads, and ZIP folder downloads. No dependencies, no configuration files, just a CLI that does the right thing out of the box.
 
