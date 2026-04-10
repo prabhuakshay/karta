@@ -8,6 +8,63 @@ from pathlib import Path
 from karta.config import Config
 
 
+# -- ANSI styling helpers --------------------------------------------------
+
+
+def _styled(text: str, code: str) -> str:
+    """Wrap text in ANSI escape codes, resetting after.
+
+    Args:
+        text: The string to style.
+        code: ANSI SGR code (e.g. ``"1"`` for bold, ``"32"`` for green).
+
+    Returns:
+        The styled string, or the original text if stdout is not a terminal.
+    """
+    if not sys.stdout.isatty():
+        return text
+    return f"\033[{code}m{text}\033[0m"
+
+
+def _print_error(message: str) -> None:
+    """Print a red error message to stderr.
+
+    Args:
+        message: The error description (without ``error:`` prefix).
+    """
+    if sys.stderr.isatty():
+        print(f"\033[31merror:\033[0m {message}", file=sys.stderr)
+    else:
+        print(f"error: {message}", file=sys.stderr)
+
+
+def _on(label: str) -> str:
+    """Format an enabled feature label in green.
+
+    Args:
+        label: The enabled-state text (e.g. ``"enabled"``).
+
+    Returns:
+        Green-styled text.
+    """
+    return _styled(label, "32")
+
+
+def _off(label: str) -> str:
+    """Format a disabled feature label in dim gray.
+
+    Args:
+        label: The disabled-state text (e.g. ``"disabled"``).
+
+    Returns:
+        Dim-styled text.
+    """
+    return _styled(label, "2")
+
+
+# -- Parsing and validation ------------------------------------------------
+
+
 def _parse_auth(auth_string: str) -> tuple[str, str]:
     """Split an ``user:pass`` string into username and password.
 
@@ -21,7 +78,7 @@ def _parse_auth(auth_string: str) -> tuple[str, str]:
         SystemExit: If the string does not contain exactly one colon.
     """
     if ":" not in auth_string:
-        print(f"error: invalid auth format '{auth_string}' — expected 'user:pass'", file=sys.stderr)
+        _print_error(f"invalid auth format '{auth_string}' — expected 'user:pass'")
         raise SystemExit(1)
     username, password = auth_string.split(":", maxsplit=1)
     return username, password
@@ -58,10 +115,10 @@ def _validate_directory(directory: Path) -> Path:
     """
     resolved = directory.resolve()
     if not resolved.exists():
-        print(f"error: directory '{directory}' does not exist", file=sys.stderr)
+        _print_error(f"directory '{directory}' does not exist")
         raise SystemExit(1)
     if not resolved.is_dir():
-        print(f"error: '{directory}' is not a directory", file=sys.stderr)
+        _print_error(f"'{directory}' is not a directory")
         raise SystemExit(1)
     return resolved
 
@@ -156,13 +213,19 @@ def _print_startup_banner(config: Config) -> None:
     Args:
         config: The resolved server configuration.
     """
-    auth_status = f"enabled (user: {config.username})" if config.username else "disabled"
-    features = []
-    features.append(f"uploads: {'enabled' if config.enable_upload else 'disabled'}")
-    features.append(f"zip downloads: {'enabled' if config.enable_zip_download else 'disabled'}")
-    features.append(f"hidden files: {'visible' if config.show_hidden else 'hidden'}")
+    url = _styled(f"http://{config.host}:{config.port}", "1;36")
+    directory = _styled(str(config.directory), "1")
+    serving = _styled("Serving", "1;36")
 
-    print(f"Serving {config.directory} on http://{config.host}:{config.port}")
+    auth_status = _on(f"enabled (user: {config.username})") if config.username else _off("disabled")
+    features = []
+    features.append(f"uploads: {_on('enabled') if config.enable_upload else _off('disabled')}")
+    features.append(
+        f"zip downloads: {_on('enabled') if config.enable_zip_download else _off('disabled')}"
+    )
+    features.append(f"hidden files: {_on('visible') if config.show_hidden else _off('hidden')}")
+
+    print(f"{serving} {directory} on {url}")
     print(f"  auth: {auth_status} | {' | '.join(features)}")
 
 

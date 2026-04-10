@@ -6,15 +6,58 @@ import pytest
 
 from karta.cli import (
     _build_parser,
+    _off,
+    _on,
     _parse_auth,
+    _print_error,
     _print_startup_banner,
     _resolve_auth,
+    _styled,
     _validate_directory,
     _validate_port,
     build_config,
     main,
 )
 from karta.config import Config
+
+
+# -- ANSI styling helpers ---------------------------------------------------
+
+
+class TestStyled:
+    def test_returns_plain_text_when_not_tty(self):
+        with patch("sys.stdout.isatty", return_value=False):
+            assert _styled("hello", "1") == "hello"
+
+    def test_wraps_with_ansi_when_tty(self):
+        with patch("sys.stdout.isatty", return_value=True):
+            assert _styled("hello", "1") == "\033[1mhello\033[0m"
+
+    def test_on_delegates_to_styled(self):
+        with patch("sys.stdout.isatty", return_value=True):
+            result = _on("enabled")
+            assert "\033[32m" in result
+            assert "enabled" in result
+
+    def test_off_delegates_to_styled(self):
+        with patch("sys.stdout.isatty", return_value=True):
+            result = _off("disabled")
+            assert "\033[2m" in result
+            assert "disabled" in result
+
+
+class TestPrintError:
+    def test_plain_when_not_tty(self, capsys):
+        with patch("sys.stderr.isatty", return_value=False):
+            _print_error("something broke")
+        assert capsys.readouterr().err == "error: something broke\n"
+
+    def test_red_when_tty(self, capsys):
+        with patch("sys.stderr.isatty", return_value=True):
+            _print_error("something broke")
+        err = capsys.readouterr().err
+        assert "\033[31merror:\033[0m" in err
+        assert "something broke" in err
 
 
 # -- _parse_auth -----------------------------------------------------------

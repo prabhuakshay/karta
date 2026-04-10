@@ -46,6 +46,17 @@ repos:
     hooks:
       - id: typos
 
+  # -- Tests -------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: uv run pytest --no-header -q --tb=short --cov-fail-under=95
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
   # -- Commit message -----------------------------------------------------------
   - repo: https://github.com/compilerla/conventional-pre-commit
     rev: "v4.4.0"
