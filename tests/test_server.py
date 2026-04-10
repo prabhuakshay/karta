@@ -222,11 +222,11 @@ class TestRequestLogging:
 
 
 class TestFavicon:
-    def test_favicon_returns_png(self, server):
+    def test_favicon_returns_svg(self, server):
         status, headers, body = _get(server, "/favicon.ico")
         assert status == 200
-        assert headers["Content-Type"] == "image/png"
-        assert body[:4] == b"\x89PNG"
+        assert headers["Content-Type"] == "image/svg+xml"
+        assert b"<svg" in body
 
     def test_favicon_has_cache_header(self, server):
         _, headers, _ = _get(server, "/favicon.ico")
