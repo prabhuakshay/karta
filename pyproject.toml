@@ -19,6 +19,8 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "prek>=0.3.8",
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
     "ruff>=0.15.10",
     "ty>=0.0.29",
 ]
@@ -79,7 +81,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = [
-    "S101",    # assert is the point of tests
+    "S",       # security checks not applicable in tests
     "D",       # docstrings not required in tests
     "ANN",     # type annotations not required in tests
     "ARG",     # unused arguments common in fixtures
@@ -119,6 +121,24 @@ indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
 docstring-code-format = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=karta",
+    "--cov-report=term-missing",
+    "--cov-fail-under=100",
+]
+
+[tool.coverage.run]
+source = ["src/karta"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 100
 
 [tool.ty.environment]
 python-version = "3.13"
