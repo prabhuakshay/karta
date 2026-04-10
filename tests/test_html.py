@@ -9,6 +9,8 @@ from karta.html import (
     render_directory_listing,
 )
 from karta.html_entries import (
+    _ext_badge,
+    _file_type_color,
     entry_href,
     format_date,
     format_size,
@@ -80,7 +82,7 @@ class TestBuildBreadcrumbs:
     def test_root(self, tmp_path):
         crumbs = _build_breadcrumbs(tmp_path, tmp_path)
         assert len(crumbs) == 1
-        assert crumbs[0] == ("\u2302", "/")
+        assert crumbs[0] == ("~", "/")
 
     def test_one_level(self, tmp_path):
         sub = tmp_path / "docs"
@@ -209,8 +211,8 @@ class TestRenderDirectoryListing:
             base_dir=tmp_path,
             request_path="/",
         )
-        # Parent link arrow icon not present at root
-        assert "M11 17l-5-5" not in page
+        # Parent back-arrow icon not present at root
+        assert "M15 19l-7-7" not in page
 
     def test_empty_directory(self, tmp_path):
         page = render_directory_listing(
@@ -220,3 +222,46 @@ class TestRenderDirectoryListing:
             request_path="/",
         )
         assert "This directory is empty" in page
+
+
+# -- _file_type_color --------------------------------------------------------
+
+
+class TestFileTypeColor:
+    def test_python(self):
+        assert "sage" in _file_type_color("main.py")
+
+    def test_config(self):
+        assert "amber" in _file_type_color("config.toml")
+
+    def test_document(self):
+        assert "cyan" in _file_type_color("readme.md")
+
+    def test_image(self):
+        assert "ruby" in _file_type_color("photo.png")
+
+    def test_archive(self):
+        assert "ink-500" in _file_type_color("backup.zip")
+
+    def test_unknown(self):
+        assert "ink-300" in _file_type_color("data.xyz")
+
+    def test_no_extension(self):
+        assert "ink-300" in _file_type_color("Makefile")
+
+
+# -- _ext_badge --------------------------------------------------------------
+
+
+class TestExtBadge:
+    def test_with_extension(self):
+        badge = _ext_badge("readme.md")
+        assert ".md" in badge
+        assert "<span" in badge
+
+    def test_no_extension(self):
+        assert _ext_badge("Makefile") == ""
+
+    def test_escapes_html(self):
+        badge = _ext_badge("file.<b>bad</b>")
+        assert "<b>" not in badge

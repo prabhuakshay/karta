@@ -13,11 +13,11 @@ from karta.html_entries import render_entry_card, render_entry_row
 
 # -- Navigation helpers -------------------------------------------------------
 
-_BACK_ARROW = (
-    '<svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" '
+_BACK_ICON = (
+    '<svg class="w-4 h-4" fill="none" stroke="currentColor" '
     'viewBox="0 0 24 24"><path stroke-linecap="round" '
-    'stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 '
-    '0l5-5m-5 5h12"/></svg>'
+    'stroke-linejoin="round" stroke-width="2" '
+    'd="M15 19l-7-7 7-7"/></svg>'
 )
 
 
@@ -31,7 +31,7 @@ def _build_breadcrumbs(path: Path, base_dir: Path) -> list[tuple[str, str]]:
     Returns:
         List of ``(label, href)`` tuples. The first entry is always the root.
     """
-    crumbs: list[tuple[str, str]] = [("\u2302", "/")]
+    crumbs: list[tuple[str, str]] = [("~", "/")]
 
     try:
         relative = path.relative_to(base_dir)
@@ -50,10 +50,10 @@ def _build_breadcrumbs(path: Path, base_dir: Path) -> list[tuple[str, str]]:
 
 
 def _render_breadcrumb_html(crumbs: list[tuple[str, str]]) -> str:
-    """Render breadcrumb navigation as HTML.
+    """Render breadcrumb navigation as an address-bar style path.
 
     Args:
-        crumbs: List of ``(label, href)`` tuples from ``_build_breadcrumbs``.
+        crumbs: List of ``(label, href)`` tuples.
 
     Returns:
         HTML string for the breadcrumb bar.
@@ -66,17 +66,21 @@ def _render_breadcrumb_html(crumbs: list[tuple[str, str]]) -> str:
         escaped_href = html.escape(href)
 
         if i == last:
-            parts.append(f'<span class="text-slate-700 font-semibold">{escaped_label}</span>')
+            parts.append(f'<span class="text-ink-800 font-semibold">{escaped_label}</span>')
         else:
             parts.append(
                 f'<a href="{escaped_href}" '
-                f'class="text-karta-600 hover:text-karta-800 '
-                f'hover:underline transition-colors">'
-                f"{escaped_label}</a>"
+                f'class="text-ink-400 hover:text-sage-500 '
+                f'transition-colors duration-150">{escaped_label}</a>'
             )
 
-    separator = '<span class="text-slate-300 mx-1.5">/</span>'
-    return separator.join(parts)
+    sep = (
+        '<svg class="w-3.5 h-3.5 text-ink-300 mx-1" '
+        'fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+        '<path stroke-linecap="round" stroke-linejoin="round" '
+        'stroke-width="2" d="M9 5l7 7-7 7"/></svg>'
+    )
+    return sep.join(parts)
 
 
 def _parent_link(request_path: str) -> str:
@@ -115,26 +119,6 @@ def _build_summary(entries: list[FileEntry]) -> str:
 
 # -- Page assembly ------------------------------------------------------------
 
-_FILTER_SCRIPT = """<script>
-  document.addEventListener('alpine:init', () => {
-    Alpine.effect(() => {
-      const root = document.querySelector('[x-data]');
-      if (!root) return;
-      const filter = Alpine.$data(root).filter.toLowerCase();
-      document.querySelectorAll('tbody tr').forEach(row => {
-        const name = row.querySelector('span.truncate');
-        if (!name) { row.style.display = ''; return; }
-        row.style.display = name.textContent.toLowerCase().includes(filter) ? '' : 'none';
-      });
-      document.querySelectorAll('.sm\\\\:hidden > a').forEach(card => {
-        const name = card.querySelector('.truncate');
-        if (!name) { card.style.display = ''; return; }
-        card.style.display = name.textContent.toLowerCase().includes(filter) ? '' : 'none';
-      });
-    });
-  });
-</script>"""
-
 
 def render_directory_listing(
     path: Path,
@@ -146,7 +130,7 @@ def render_directory_listing(
 
     Args:
         path: Absolute path to the directory being listed.
-        entries: Sorted list of ``FileEntry`` objects from ``fs.list_directory``.
+        entries: Sorted list of ``FileEntry`` objects.
         base_dir: The served root directory.
         request_path: The original URL path from the request.
 
@@ -159,26 +143,26 @@ def render_directory_listing(
     summary = _build_summary(entries)
     dir_name = html.escape(path.name or "/")
 
-    # Parent directory row/card for non-root directories
     parent_row = ""
     parent_card = ""
     if not is_root:
         parent_row = (
-            f'<tr class="group hover:bg-karta-50/60 transition-colors">'
-            f'<td class="py-2.5 pl-4 pr-2" colspan="3">'
-            f'<a href="{parent_href}" class="flex items-center gap-2.5 '
-            f'text-slate-500 hover:text-karta-600 transition-colors">'
-            f"{_BACK_ARROW}"
-            f"<span>..</span></a></td></tr>"
+            f'<tr class="hover:bg-sage-50 '
+            f'transition-colors duration-100">'
+            f'<td class="px-4 py-3" colspan="3">'
+            f'<a href="{parent_href}" class="flex items-center '
+            f"gap-3 text-ink-400 hover:text-sage-500 "
+            f'transition-colors duration-150">'
+            f"{_BACK_ICON}"
+            f'<span class="text-sm">..</span></a></td></tr>'
         )
         parent_card = (
-            f'<a href="{parent_href}" class="flex items-center gap-3 px-4 '
-            f'py-3 hover:bg-karta-50/60 transition-colors rounded-lg">'
-            f'<svg class="w-5 h-5 text-slate-400 shrink-0" fill="none" '
-            f'stroke="currentColor" viewBox="0 0 24 24"><path '
-            f'stroke-linecap="round" stroke-linejoin="round" '
-            f'stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"/></svg>'
-            f'<div class="text-slate-500">..</div></a>'
+            f'<a href="{parent_href}" class="flex items-center '
+            f"gap-3 px-4 py-3.5 hover:bg-sage-50 "
+            f'transition-colors duration-100">'
+            f"{_BACK_ICON}"
+            f'<span class="text-ink-400 text-sm">..</span>'
+            f"</a>"
         )
 
     table_rows = parent_row + "".join(render_entry_row(e, request_path) for e in entries)
@@ -187,14 +171,19 @@ def render_directory_listing(
     empty_state = ""
     if not entries:
         empty_state = (
-            '<div class="text-center py-16">'
-            '<svg class="w-12 h-12 text-slate-300 mx-auto mb-4" fill="none" '
+            '<div class="text-center py-20">'
+            '<div class="w-16 h-16 rounded-xl bg-surface-2 '
+            'flex items-center justify-center mx-auto mb-4">'
+            '<svg class="w-8 h-8 text-ink-300" fill="none" '
             'stroke="currentColor" viewBox="0 0 24 24">'
             '<path stroke-linecap="round" stroke-linejoin="round" '
             'stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 '
-            '002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>'
-            '<p class="text-slate-400 text-sm">This directory is empty</p>'
-            "</div>"
+            '002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>'
+            "</svg></div>"
+            '<p class="text-ink-500 text-sm font-medium">'
+            "Nothing here yet</p>"
+            '<p class="text-ink-300 text-xs mt-1">'
+            "This directory is empty</p></div>"
         )
 
     return _PAGE_TEMPLATE.format(
@@ -204,12 +193,12 @@ def render_directory_listing(
         table_rows=table_rows,
         card_items=card_items,
         empty_state=empty_state,
-        filter_script=_FILTER_SCRIPT,
     )
 
 
-_PAGE_TEMPLATE = """<!DOCTYPE html>
-<html lang="en">
+_PAGE_TEMPLATE = """\
+<!DOCTYPE html>
+<html lang="en" class="antialiased">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -218,66 +207,119 @@ _PAGE_TEMPLATE = """<!DOCTYPE html>
   <link rel="stylesheet" href="/_karta/static/karta.css">
   <script defer src="/_karta/static/alpine.min.js"></script>
 </head>
-<body class="bg-slate-50 min-h-screen">
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-10">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-lg bg-karta-600 flex items-center justify-center">
-          <span class="text-white font-bold text-sm">K</span>
-        </div>
-        <nav class="text-sm flex items-center flex-wrap">{breadcrumb_html}</nav>
+<body class="bg-surface-0 text-ink-700 font-sans min-h-screen
+  flex flex-col">
+
+  <header class="bg-surface-1/80 backdrop-blur-lg border-b
+    border-surface-3 sticky top-0 z-10">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8
+      h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3 min-w-0">
+        <a href="/" class="flex items-center gap-2 shrink-0
+          group" title="karta root">
+          <div class="w-7 h-7 rounded-lg bg-gradient-to-br
+            from-sage-400 to-sage-600 flex items-center
+            justify-center shadow-card
+            group-hover:shadow-card-md transition-shadow
+            duration-200">
+            <span class="text-white font-bold
+              text-xs leading-none">K</span>
+          </div>
+        </a>
+        <nav class="flex items-center text-sm min-w-0
+          overflow-x-auto scrollbar-none">
+          {breadcrumb_html}
+        </nav>
       </div>
-      <div class="text-xs text-slate-400">{summary}</div>
+      <span class="text-xs text-ink-400 tabular-nums
+        whitespace-nowrap ml-4 hidden sm:block">
+        {summary}
+      </span>
     </div>
   </header>
-  <main class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
-    <div x-data="{{ filter: '' }}" class="space-y-4">
-      <div class="relative">
-        <svg class="absolute left-3 top-1/2 -translate-y-1/2
-          w-4 h-4 text-slate-400" fill="none"
-          stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round"
-            stroke-width="2"
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-        </svg>
-        <input x-model="filter" type="text"
-          placeholder="Filter files&hellip;"
-          class="w-full pl-10 pr-4 py-2.5 bg-white border
-            border-slate-200 rounded-xl text-sm text-slate-700
-            placeholder-slate-400 focus:outline-none focus:ring-2
-            focus:ring-karta-500/20 focus:border-karta-400
-            transition">
-      </div>
-      <div class="hidden sm:block bg-white rounded-xl
-        border border-slate-200 overflow-hidden shadow-sm">
-        <table class="w-full">
-          <thead>
-            <tr class="border-b border-slate-100 text-xs
-              text-slate-400 uppercase tracking-wider">
-              <th class="py-2.5 pl-4 pr-2 text-left
-                font-medium">Name</th>
-              <th class="py-2.5 px-3 text-right font-medium
-                hidden sm:table-cell">Size</th>
-              <th class="py-2.5 px-3 pr-4 text-right font-medium
-                hidden md:table-cell">Modified</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-50">
-            {table_rows}
-          </tbody>
-        </table>
-      </div>
-      <div class="sm:hidden bg-white rounded-xl border
-        border-slate-200 overflow-hidden shadow-sm
-        divide-y divide-slate-100">
-        {card_items}
-      </div>
+
+  <main class="max-w-5xl mx-auto w-full px-4 sm:px-6
+    lg:px-8 py-5 flex-1"
+    x-data="{{ filter: '' }}"
+    x-effect="
+      const f = filter.toLowerCase();
+      $el.querySelectorAll('tbody tr').forEach(r => {{
+        const n = r.querySelector('.truncate');
+        if (!n) {{ r.style.display = ''; return; }}
+        r.style.display =
+          n.textContent.toLowerCase().includes(f)
+            ? '' : 'none';
+      }});
+      $el.querySelectorAll(
+        '.mobile-list > a'
+      ).forEach(c => {{
+        const n = c.querySelector('.truncate');
+        if (!n) {{ c.style.display = ''; return; }}
+        c.style.display =
+          n.textContent.toLowerCase().includes(f)
+            ? '' : 'none';
+      }});
+    ">
+
+    <div class="relative mb-4">
+      <svg class="absolute left-3.5 top-1/2
+        -translate-y-1/2 w-4 h-4 text-ink-300
+        pointer-events-none" fill="none"
+        stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round"
+          stroke-linejoin="round" stroke-width="2"
+          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+      </svg>
+      <input x-model="filter" type="text"
+        placeholder="Filter&hellip;"
+        class="w-full sm:w-72 pl-10 pr-4 py-2.5
+          bg-surface-2 border border-surface-3
+          rounded-md text-sm text-ink-700
+          placeholder:text-ink-300
+          hover:border-surface-4
+          focus:border-sage-400 focus:bg-surface-1
+          focus:ring-2 focus:ring-sage-50
+          transition-colors duration-150">
     </div>
+
+    <div class="hidden sm:block bg-surface-1
+      shadow-card rounded-xl overflow-hidden">
+      <table class="w-full">
+        <thead class="bg-surface-2/40">
+          <tr class="border-b border-surface-3">
+            <th class="py-3 px-4 text-left text-label
+              uppercase tracking-wider text-ink-400
+              font-semibold">Name</th>
+            <th class="py-3 px-4 text-right text-label
+              uppercase tracking-wider text-ink-400
+              font-semibold hidden sm:table-cell">Size</th>
+            <th class="py-3 px-4 text-right text-label
+              uppercase tracking-wider text-ink-400
+              font-semibold hidden md:table-cell">Modified</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-surface-3">
+          {table_rows}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="sm:hidden bg-surface-1 shadow-card
+      rounded-xl overflow-hidden mobile-list
+      divide-y divide-surface-3">
+      {card_items}
+    </div>
+
     {empty_state}
   </main>
-  <footer class="max-w-5xl mx-auto px-4 sm:px-6 py-6 text-center">
-    <p class="text-xs text-slate-300">served by karta</p>
+
+  <footer class="max-w-5xl mx-auto w-full px-4 sm:px-6
+    lg:px-8 py-4">
+    <p class="text-xs text-ink-300 text-center
+      tracking-wide">
+      served by
+      <span class="font-medium text-ink-400">karta</span>
+    </p>
   </footer>
-  {filter_script}
 </body>
 </html>"""

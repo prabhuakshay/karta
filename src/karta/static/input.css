@@ -1,16 +1,70 @@
 @import "tailwindcss";
 
 @source "../html.py";
+@source "../html_entries.py";
 
 @theme {
-  --color-karta-50: #f0fdfa;
-  --color-karta-100: #ccfbf1;
-  --color-karta-200: #99f6e4;
-  --color-karta-300: #5eead4;
-  --color-karta-400: #2dd4bf;
-  --color-karta-500: #14b8a6;
-  --color-karta-600: #0d9488;
-  --color-karta-700: #0f766e;
-  --color-karta-800: #115e59;
-  --color-karta-900: #134e4a;
+  --color-surface-0: #EFEBE4;
+  --color-surface-1: #FFFFFF;
+  --color-surface-2: #F2EFEA;
+  --color-surface-3: #E5E1DA;
+  --color-surface-4: #D4CFC6;
+
+  --color-sage-50: #F0F6F3;
+  --color-sage-100: #D9E9E1;
+  --color-sage-200: #B3D3C4;
+  --color-sage-300: #85B8A2;
+  --color-sage-400: #5A9A84;
+  --color-sage-500: #47806D;
+  --color-sage-600: #386658;
+  --color-sage-700: #2D5246;
+
+  --color-ink-300: #ADA89F;
+  --color-ink-400: #827D74;
+  --color-ink-500: #635E55;
+  --color-ink-600: #4A463F;
+  --color-ink-700: #332F2A;
+  --color-ink-800: #211E1A;
+  --color-ink-900: #121110;
+
+  --color-mint-50: #EEFBF2;
+  --color-mint-500: #1A8F47;
+  --color-ruby-50: #FEF0EE;
+  --color-ruby-500: #C93425;
+  --color-amber-50: #FFF9EE;
+  --color-amber-500: #B8820F;
+  --color-cyan-50: #EEF5FE;
+  --color-cyan-500: #2B6CB0;
+
+  --font-sans: system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", monospace;
+
+  --shadow-card: 0 1px 3px 0 rgba(30, 29, 26, 0.10),
+    0 1px 2px -1px rgba(30, 29, 26, 0.07);
+
+  --radius-DEFAULT: 8px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+}
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid #5A9A84;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Hide Alpine x-cloak elements until init */
+[x-cloak] { display: none !important; }
+
+/* Staggered entrance */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-in {
+  animation: fadeUp 0.4s ease-out both;
 }
