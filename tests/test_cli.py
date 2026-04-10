@@ -241,6 +241,7 @@ class TestPrintStartupBanner:
             password=None,
             show_hidden=False,
             enable_zip_download=False,
+            max_zip_size=104857600,
             enable_upload=False,
         )
         _print_startup_banner(config)
@@ -261,6 +262,7 @@ class TestPrintStartupBanner:
             password="secret",
             show_hidden=True,
             enable_zip_download=True,
+            max_zip_size=104857600,
             enable_upload=True,
         )
         _print_startup_banner(config)

@@ -16,6 +16,7 @@ def sample_config():
         password=None,
         show_hidden=False,
         enable_zip_download=False,
+        max_zip_size=104857600,
         enable_upload=False,
     )
 
@@ -29,6 +30,7 @@ class TestConfigCreation:
         assert sample_config.password is None
         assert sample_config.show_hidden is False
         assert sample_config.enable_zip_download is False
+        assert sample_config.max_zip_size == 104857600
         assert sample_config.enable_upload is False
 
     def test_with_auth(self):
@@ -40,6 +42,7 @@ class TestConfigCreation:
             password="secret",
             show_hidden=True,
             enable_zip_download=True,
+            max_zip_size=209715200,
             enable_upload=True,
         )
         assert config.username == "alice"

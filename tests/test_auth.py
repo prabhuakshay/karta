@@ -151,6 +151,7 @@ def auth_config(auth_serve_dir):
         password="secret",
         show_hidden=False,
         enable_zip_download=False,
+        max_zip_size=104857600,
         enable_upload=False,
     )
 
