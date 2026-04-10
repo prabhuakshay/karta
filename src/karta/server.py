@@ -6,7 +6,7 @@ from functools import partial
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, unquote
+from urllib.parse import parse_qs, unquote, urlparse
 
 from karta.auth import (
     COOKIE_NAME,
@@ -20,6 +20,7 @@ from karta.fs import list_directory, read_file, resolve_safe_path
 from karta.html import render_directory_listing
 from karta.html_login import render_login_page
 from karta.log import log_styled, status_color
+from karta.zip import ZipSizeLimitError, create_zip_bytes
 
 
 # Inline SVG favicon — bold "K" on a teal circle
@@ -138,7 +139,9 @@ class KartaHandler(BaseHTTPRequestHandler):
             self._serve_static(self.path)
             return
 
-        request_path = unquote(self.path)
+        parsed = urlparse(self.path)
+        request_path = unquote(parsed.path)
+        wants_zip = parsed.query == "zip"
         resolved = resolve_safe_path(self.config.directory, request_path)
 
         if resolved is None:
@@ -147,6 +150,10 @@ class KartaHandler(BaseHTTPRequestHandler):
 
         if not resolved.exists():
             self._send_error(404, "Not Found")
+            return
+
+        if resolved.is_dir() and wants_zip:
+            self._serve_zip(resolved)
             return
 
         if resolved.is_dir():
@@ -259,6 +266,35 @@ class KartaHandler(BaseHTTPRequestHandler):
         self._cache_header()
         self.end_headers()
         self.wfile.write(body)
+
+    def _serve_zip(self, resolved: Path) -> None:
+        """Serve a ZIP archive of a directory's contents."""
+        if not self.config.enable_zip_download:
+            self._send_error(403, "ZIP downloads are disabled")
+            return
+
+        dir_name = resolved.name or "root"
+        try:
+            data = create_zip_bytes(
+                directory=resolved,
+                base_dir=self.config.directory,
+                show_hidden=self.config.show_hidden,
+                max_size=self.config.max_zip_size,
+            )
+        except ZipSizeLimitError:
+            self._send_error(413, "ZIP archive too large")
+            return
+
+        self.send_response(200)
+        self.send_header("Content-Type", "application/zip")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header(
+            "Content-Disposition",
+            f'attachment; filename="{dir_name}.zip"',
+        )
+        self._cache_header()
+        self.end_headers()
+        self.wfile.write(data)
 
     def _serve_static(self, url_path: str) -> None:
         """Serve bundled static assets from the karta package."""

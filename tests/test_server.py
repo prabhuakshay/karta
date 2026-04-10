@@ -1,6 +1,8 @@
 import threading
+import zipfile
 from functools import partial
 from http.server import HTTPServer
+from io import BytesIO
 from unittest.mock import patch
 from urllib.request import Request, urlopen
 
@@ -49,6 +51,36 @@ def server(config):
     """Start a real HTTP server on a random port, yield base URL, shut down after."""
     sessions = SessionStore()
     handler = partial(KartaHandler, config, sessions)
+    httpd = HTTPServer(("127.0.0.1", 0), handler)
+    port = httpd.server_address[1]
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    yield f"http://127.0.0.1:{port}"
+    httpd.shutdown()
+    httpd.server_close()
+
+
+@pytest.fixture
+def zip_config(serve_dir):
+    """Create a Config with ZIP downloads enabled."""
+    return Config(
+        directory=serve_dir,
+        host="127.0.0.1",
+        port=0,
+        username=None,
+        password=None,
+        show_hidden=False,
+        enable_zip_download=True,
+        max_zip_size=104857600,
+        enable_upload=False,
+    )
+
+
+@pytest.fixture
+def zip_server(zip_config):
+    """Start a server with ZIP downloads enabled."""
+    sessions = SessionStore()
+    handler = partial(KartaHandler, zip_config, sessions)
     httpd = HTTPServer(("127.0.0.1", 0), handler)
     port = httpd.server_address[1]
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
@@ -295,3 +327,61 @@ class TestRunServer:
         ):
             run_server(config)
         mock_close.assert_called_once()
+
+
+# -- ZIP downloads -----------------------------------------------------------
+
+
+class TestZipDownload:
+    def test_zip_disabled_returns_403(self, server):
+        status, _, body = _get(server, "/?zip")
+        assert status == 403
+        assert b"disabled" in body
+
+    def test_zip_enabled_returns_zip(self, zip_server):
+        status, headers, _ = _get(zip_server, "/?zip")
+        assert status == 200
+        assert headers["Content-Type"] == "application/zip"
+        assert "attachment" in headers["Content-Disposition"]
+
+    def test_zip_filename_matches_directory(self, zip_server):
+        status, headers, _ = _get(zip_server, "/subdir/?zip")
+        assert status == 200
+        assert 'filename="subdir.zip"' in headers["Content-Disposition"]
+
+    def test_zip_content_is_valid(self, zip_server):
+        _, _, body = _get(zip_server, "/subdir/?zip")
+        zf = zipfile.ZipFile(BytesIO(body))
+        assert zf.testzip() is None
+        assert "nested.txt" in zf.namelist()
+
+    def test_zip_too_large_returns_413(self, serve_dir):
+        """A tiny max_zip_size triggers a 413 response."""
+        tiny_config = Config(
+            directory=serve_dir,
+            host="127.0.0.1",
+            port=0,
+            username=None,
+            password=None,
+            show_hidden=False,
+            enable_zip_download=True,
+            max_zip_size=1,
+            enable_upload=False,
+        )
+        sessions = SessionStore()
+        handler = partial(KartaHandler, tiny_config, sessions)
+        httpd = HTTPServer(("127.0.0.1", 0), handler)
+        port = httpd.server_address[1]
+        thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+        thread.start()
+        try:
+            status, _, body = _get(f"http://127.0.0.1:{port}", "/?zip")
+            assert status == 413
+            assert b"too large" in body
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
+
+    def test_zip_nonexistent_dir_returns_404(self, zip_server):
+        status, _, _ = _get(zip_server, "/nope/?zip")
+        assert status == 404
