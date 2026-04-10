@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@source "../html.py";
+
+@theme {
+  --color-karta-50: #f0fdfa;
+  --color-karta-100: #ccfbf1;
+  --color-karta-200: #99f6e4;
+  --color-karta-300: #5eead4;
+  --color-karta-400: #2dd4bf;
+  --color-karta-500: #14b8a6;
+  --color-karta-600: #0d9488;
+  --color-karta-700: #0f766e;
+  --color-karta-800: #115e59;
+  --color-karta-900: #134e4a;
+}

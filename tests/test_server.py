@@ -144,20 +144,63 @@ class TestFileServing:
         assert body == b"nested content"
 
 
-# -- Directory placeholder ---------------------------------------------------
+# -- Directory listing -------------------------------------------------------
 
 
 class TestDirectoryServing:
     def test_root_directory(self, server):
         status, headers, body = _get(server, "/")
         assert status == 200
-        assert headers["Content-Type"] == "text/plain; charset=utf-8"
-        assert b"Directory: /" in body
+        assert headers["Content-Type"] == "text/html; charset=utf-8"
+        assert b"<!DOCTYPE html>" in body
+        assert b"hello.txt" in body
 
     def test_subdirectory(self, server):
-        status, _, body = _get(server, "/subdir/")
+        status, headers, body = _get(server, "/subdir/")
         assert status == 200
-        assert b"Directory: /subdir/" in body
+        assert headers["Content-Type"] == "text/html; charset=utf-8"
+        assert b"nested.txt" in body
+        assert b".." in body
+
+    def test_directory_hides_dotfiles(self, server, serve_dir):
+        (serve_dir / ".hidden").write_text("secret")
+        _, _, body = _get(server, "/")
+        assert b".hidden" not in body
+
+    def test_directory_lists_subdirs_first(self, server):
+        _, _, body = _get(server, "/")
+        body_str = body.decode()
+        subdir_pos = body_str.find("subdir")
+        hello_pos = body_str.find("hello.txt")
+        assert subdir_pos < hello_pos
+
+
+# -- Static assets -----------------------------------------------------------
+
+
+class TestStaticAssets:
+    def test_serve_css(self, server):
+        status, headers, body = _get(server, "/_karta/static/karta.css")
+        assert status == 200
+        assert headers["Content-Type"] == "text/css; charset=utf-8"
+        assert b"tailwindcss" in body
+
+    def test_serve_js(self, server):
+        status, headers, _ = _get(server, "/_karta/static/alpine.min.js")
+        assert status == 200
+        assert "javascript" in headers["Content-Type"]
+
+    def test_cache_header(self, server):
+        _, headers, _ = _get(server, "/_karta/static/karta.css")
+        assert "max-age=86400" in headers["Cache-Control"]
+
+    def test_404_nonexistent_static(self, server):
+        status, _, _ = _get(server, "/_karta/static/nope.css")
+        assert status == 404
+
+    def test_404_directory_traversal(self, server):
+        status, _, _ = _get(server, "/_karta/static/../server.py")
+        assert status == 404
 
 
 # -- Error responses ---------------------------------------------------------

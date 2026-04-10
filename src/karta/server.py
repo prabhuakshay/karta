@@ -1,5 +1,6 @@
 """HTTP server and request handler for karta."""
 
+import importlib.resources
 import sys
 from functools import partial
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -8,7 +9,8 @@ from typing import Any
 from urllib.parse import unquote
 
 from karta.config import Config
-from karta.fs import read_file, resolve_safe_path
+from karta.fs import list_directory, read_file, resolve_safe_path
+from karta.html import render_directory_listing
 
 
 # Inline SVG favicon — bold "K" on a teal circle
@@ -85,9 +87,13 @@ class KartaHandler(BaseHTTPRequestHandler):
         super().__init__(request, client_address, server)
 
     def do_GET(self) -> None:
-        """Handle GET requests: serve files, directory placeholders, or errors."""
+        """Handle GET requests: serve files, directories, or static assets."""
         if self.path == "/favicon.ico":
             self._serve_favicon()
+            return
+
+        if self.path.startswith("/_karta/static/"):
+            self._serve_static(self.path)
             return
 
         request_path = unquote(self.path)
@@ -102,7 +108,7 @@ class KartaHandler(BaseHTTPRequestHandler):
             return
 
         if resolved.is_dir():
-            self._serve_directory(request_path)
+            self._serve_directory(request_path, resolved)
             return
 
         self._serve_file(resolved)
@@ -120,18 +126,59 @@ class KartaHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(content)
 
-    def _serve_directory(self, request_path: str) -> None:
-        """Serve a placeholder response for directory requests.
+    def _serve_directory(self, request_path: str, resolved: Path) -> None:
+        """Serve an HTML directory listing.
 
         Args:
             request_path: The original URL path.
+            resolved: The resolved filesystem path.
         """
-        body = f"Directory: {request_path}".encode()
+        entries = list_directory(resolved, self.config.show_hidden)
+        page = render_directory_listing(
+            path=resolved,
+            entries=entries,
+            base_dir=self.config.directory,
+            request_path=request_path,
+        )
+        body = page.encode()
         self.send_response(200)
-        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def _serve_static(self, url_path: str) -> None:
+        """Serve bundled static assets from the karta package.
+
+        Args:
+            url_path: The full URL path starting with ``/_karta/static/``.
+        """
+        filename = url_path.removeprefix("/_karta/static/")
+        if not filename or "/" in filename:
+            self._send_error(404, "Not Found")
+            return
+
+        mime_types = {
+            ".css": "text/css; charset=utf-8",
+            ".js": "application/javascript; charset=utf-8",
+        }
+
+        try:
+            ref = importlib.resources.files("karta").joinpath("static", filename)
+            content = ref.read_bytes()
+        except (FileNotFoundError, TypeError):
+            self._send_error(404, "Not Found")
+            return
+
+        suffix = Path(filename).suffix
+        content_type = mime_types.get(suffix, "application/octet-stream")
+
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(content)))
+        self.send_header("Cache-Control", "public, max-age=86400")
+        self.end_headers()
+        self.wfile.write(content)
 
     def _serve_favicon(self) -> None:
         """Serve the embedded SVG favicon without logging the request."""
