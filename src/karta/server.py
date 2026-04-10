@@ -6,12 +6,20 @@ from functools import partial
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import unquote
+from urllib.parse import parse_qs, unquote
 
-from karta.auth import check_basic_auth
+from karta.auth import (
+    COOKIE_NAME,
+    SessionStore,
+    check_basic_auth,
+    check_credentials,
+    parse_cookie,
+)
 from karta.config import Config
 from karta.fs import list_directory, read_file, resolve_safe_path
 from karta.html import render_directory_listing
+from karta.html_login import render_login_page
+from karta.log import log_styled, status_color
 
 
 # Inline SVG favicon — bold "K" on a teal circle
@@ -24,113 +32,101 @@ _FAVICON_SVG = (
 )
 
 
-# -- ANSI styling for request logs -----------------------------------------
-
-
-def _log_styled(text: str, code: str) -> str:
-    """Wrap text in ANSI escape codes if stderr is a terminal.
-
-    Args:
-        text: The string to style.
-        code: ANSI SGR code.
-
-    Returns:
-        The styled string, or the original text if stderr is not a terminal.
-    """
-    if not sys.stderr.isatty():
-        return text
-    return f"\033[{code}m{text}\033[0m"
-
-
-def _status_color(status: int) -> str:
-    """Return an ANSI-colored status code string.
-
-    Args:
-        status: HTTP status code.
-
-    Returns:
-        Color-coded status string (green for 2xx, yellow for 3xx, red for 4xx+).
-    """
-    text = str(status)
-    if 200 <= status < 300:
-        return _log_styled(text, "32")
-    if 300 <= status < 400:
-        return _log_styled(text, "33")
-    return _log_styled(text, "31")
-
-
 # -- Request handler -------------------------------------------------------
 
 
 class KartaHandler(BaseHTTPRequestHandler):
     """HTTP request handler that serves files from a configured directory.
 
-    Config is injected via ``functools.partial`` when creating the handler
-    class, since ``HTTPServer`` instantiates the handler per-request.
+    Config and session store are injected via ``functools.partial`` when
+    creating the handler class, since ``HTTPServer`` instantiates the
+    handler per-request.
     """
 
     def __init__(
         self,
         config: Config,
+        sessions: SessionStore,
         request: Any,
         client_address: Any,
         server: HTTPServer,
     ) -> None:
-        """Initialize handler with injected config.
+        """Initialize handler with injected config and session store.
 
         Args:
             config: The resolved server configuration.
+            sessions: Shared session store for auth tokens.
             request: The incoming socket request.
             client_address: The ``(host, port)`` of the client.
             server: The parent ``HTTPServer`` instance.
         """
         self.config = config
+        self.sessions = sessions
         super().__init__(request, client_address, server)
 
-    def _check_auth(self) -> bool:
-        """Check Basic Auth if credentials are configured.
+    # -- Auth ----------------------------------------------------------------
 
-        Returns:
-            ``True`` if the request is authorized (either auth is disabled
-            or valid credentials were provided). ``False`` if a 401
-            response was sent.
+    def _auth_enabled(self) -> bool:
+        """Check whether auth is configured."""
+        return self.config.username is not None and self.config.password is not None
+
+    def _is_authenticated(self) -> bool:
+        """Check if the request has valid credentials via session or header.
+
+        Supports two auth paths:
+        - **Cookie session** (browsers): ``karta_session`` cookie
+        - **Authorization header** (curl/API): ``Basic`` scheme
         """
         if self.config.username is None or self.config.password is None:
             return True
 
-        header = self.headers.get("Authorization")
-        if check_basic_auth(header, self.config.username, self.config.password):
+        cookie_header = self.headers.get("Cookie")
+        token = parse_cookie(cookie_header, COOKIE_NAME)
+        if token and self.sessions.validate(token):
             return True
 
-        self._send_401()
+        header = self.headers.get("Authorization")
+        return check_basic_auth(header, self.config.username, self.config.password)
+
+    def _check_auth(self) -> bool:
+        """Gate a request behind auth. Redirects to login if unauthorized.
+
+        Returns:
+            ``True`` if the request may proceed. ``False`` if a redirect
+            or 401 was sent (caller should return immediately).
+        """
+        if self._is_authenticated():
+            return True
+
+        if self.headers.get("Authorization"):
+            self._send_401()
+            return False
+
+        self._redirect("/_karta/login")
         return False
 
     def _send_401(self) -> None:
-        """Send a 401 Unauthorized response with the WWW-Authenticate header."""
-        body = (
-            "<!doctype html>"
-            "<html><head><meta charset='utf-8'>"
-            "<title>401 — Unauthorized</title>"
-            "<style>"
-            "body{font-family:system-ui,sans-serif;display:flex;"
-            "justify-content:center;align-items:center;min-height:100vh;"
-            "margin:0;background:#0f172a;color:#94a3b8}"
-            "div{text-align:center}"
-            "h1{font-size:3rem;color:#f1f5f9;margin:0 0 .5rem}"
-            "p{font-size:1.1rem;margin:0}"
-            "</style></head><body><div>"
-            "<h1>401</h1><p>Valid credentials required.</p>"
-            "</div></body></html>"
-        ).encode()
+        """Send a 401 for API/curl clients using the Authorization header."""
+        body = b"401 Unauthorized"
         self.send_response(401)
         self.send_header("WWW-Authenticate", 'Basic realm="karta"')
-        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
-    def do_GET(self) -> None:
-        """Handle GET requests: serve files, directories, or static assets."""
+    # -- Routing -------------------------------------------------------------
+
+    def do_GET(self) -> None:  # noqa: PLR0911
+        """Handle GET requests: auth pages, files, directories, static."""
+        if self._auth_enabled() and self.path == "/_karta/login":
+            self._serve_login_page()
+            return
+
+        if self._auth_enabled() and self.path == "/_karta/logout":
+            self._handle_logout()
+            return
+
         if not self._check_auth():
             return
 
@@ -159,12 +155,78 @@ class KartaHandler(BaseHTTPRequestHandler):
 
         self._serve_file(resolved)
 
-    def _serve_file(self, path: Path) -> None:
-        """Serve a file with correct Content-Type and Content-Length.
+    def do_POST(self) -> None:
+        """Handle POST requests: login form submission."""
+        if self._auth_enabled() and self.path == "/_karta/login":
+            self._handle_login()
+            return
 
-        Args:
-            path: Resolved filesystem path to the file.
-        """
+        self._send_error(405, "Method Not Allowed")
+
+    # -- Auth pages ----------------------------------------------------------
+
+    def _serve_login_page(self, error: str | None = None) -> None:
+        """Serve the login form page."""
+        body = render_login_page(error=error).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _handle_login(self) -> None:
+        """Process a login form POST and set a session cookie on success."""
+        if self.config.username is None or self.config.password is None:  # pragma: no cover
+            return
+
+        content_length = int(self.headers.get("Content-Length", 0))
+        raw_body = self.rfile.read(content_length).decode("utf-8")
+        params = parse_qs(raw_body)
+
+        username = params.get("username", [""])[0]
+        password = params.get("password", [""])[0]
+
+        if not check_credentials(username, password, self.config.username, self.config.password):
+            self._serve_login_page(error="Invalid username or password.")
+            return
+
+        token = self.sessions.create()
+        self.send_response(303)
+        self.send_header("Location", "/")
+        self.send_header(
+            "Set-Cookie",
+            f"{COOKIE_NAME}={token}; Path=/; HttpOnly; SameSite=Strict",
+        )
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+
+    def _handle_logout(self) -> None:
+        """Invalidate the session and redirect to the login page."""
+        cookie_header = self.headers.get("Cookie")
+        token = parse_cookie(cookie_header, COOKIE_NAME)
+        if token:
+            self.sessions.invalidate(token)
+
+        self.send_response(303)
+        self.send_header("Location", "/_karta/login")
+        self.send_header(
+            "Set-Cookie",
+            f"{COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0",
+        )
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+
+    # -- Helpers -------------------------------------------------------------
+
+    def _redirect(self, location: str) -> None:
+        """Send a 303 See Other redirect."""
+        self.send_response(303)
+        self.send_header("Location", location)
+        self.end_headers()
+
+    def _serve_file(self, path: Path) -> None:
+        """Serve a file with correct Content-Type and Content-Length."""
         content, content_type = read_file(path)
         self.send_response(200)
         self.send_header("Content-Type", content_type)
@@ -173,12 +235,7 @@ class KartaHandler(BaseHTTPRequestHandler):
         self.wfile.write(content)
 
     def _serve_directory(self, request_path: str, resolved: Path) -> None:
-        """Serve an HTML directory listing.
-
-        Args:
-            request_path: The original URL path.
-            resolved: The resolved filesystem path.
-        """
+        """Serve an HTML directory listing."""
         entries = list_directory(resolved, self.config.show_hidden)
         page = render_directory_listing(
             path=resolved,
@@ -194,11 +251,7 @@ class KartaHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _serve_static(self, url_path: str) -> None:
-        """Serve bundled static assets from the karta package.
-
-        Args:
-            url_path: The full URL path starting with ``/_karta/static/``.
-        """
+        """Serve bundled static assets from the karta package."""
         filename = url_path.removeprefix("/_karta/static/")
         if not filename or "/" in filename:
             self._send_error(404, "Not Found")
@@ -227,7 +280,7 @@ class KartaHandler(BaseHTTPRequestHandler):
         self.wfile.write(content)
 
     def _serve_favicon(self) -> None:
-        """Serve the embedded SVG favicon without logging the request."""
+        """Serve the embedded SVG favicon."""
         self.send_response(200)
         self.send_header("Content-Type", "image/svg+xml")
         self.send_header("Content-Length", str(len(_FAVICON_SVG)))
@@ -236,12 +289,7 @@ class KartaHandler(BaseHTTPRequestHandler):
         self.wfile.write(_FAVICON_SVG)
 
     def _send_error(self, code: int, message: str) -> None:
-        """Send an error response with a plain-text body.
-
-        Args:
-            code: HTTP status code.
-            message: Human-readable error message.
-        """
+        """Send an error response with a plain-text body."""
         body = message.encode()
         self.send_response(code)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
@@ -249,31 +297,19 @@ class KartaHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    # -- Logging -------------------------------------------------------------
+
     def log_request(self, code: int | str = "-", size: int | str = 0) -> None:
-        """Log a request with colored output to stderr.
-
-        Favicon requests are suppressed to reduce log noise.
-
-        Args:
-            code: HTTP status code.
-            size: Response size (unused, kept for API compatibility).
-        """
+        """Log a request with colored output to stderr."""
         if self.path == "/favicon.ico":
             return
-        method = _log_styled(self.command or "?", "1")
-        path = _log_styled(self.path, "36")
-        status = _status_color(int(code)) if str(code).isdigit() else str(code)
+        method = log_styled(self.command or "?", "1")
+        path = log_styled(self.path, "36")
+        status = status_color(int(code)) if str(code).isdigit() else str(code)
         print(f"  {method} {path} {status}", file=sys.stderr)
 
     def log_message(self, format: str, *args: object) -> None:  # noqa: A002
-        """Suppress default BaseHTTPRequestHandler logging.
-
-        All logging goes through ``log_request`` instead.
-
-        Args:
-            format: Printf-style format string (ignored).
-            *args: Format arguments (ignored).
-        """
+        """Suppress default BaseHTTPRequestHandler logging."""
 
 
 # -- Server startup --------------------------------------------------------
@@ -282,13 +318,11 @@ class KartaHandler(BaseHTTPRequestHandler):
 def run_server(config: Config) -> None:
     """Start the HTTP server and block until interrupted.
 
-    Creates an ``HTTPServer`` with ``KartaHandler`` configured via
-    ``functools.partial``, then serves requests until ``KeyboardInterrupt``.
-
     Args:
         config: The resolved server configuration.
     """
-    handler = partial(KartaHandler, config)
+    sessions = SessionStore()
+    handler = partial(KartaHandler, config, sessions)
     server = HTTPServer((config.host, config.port), handler)
     try:
         server.serve_forever()

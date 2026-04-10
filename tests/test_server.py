@@ -6,13 +6,10 @@ from urllib.request import Request, urlopen
 
 import pytest
 
+from karta.auth import SessionStore
 from karta.config import Config
-from karta.server import (
-    KartaHandler,
-    _log_styled,
-    _status_color,
-    run_server,
-)
+from karta.log import log_styled, status_color
+from karta.server import KartaHandler, run_server
 
 
 # -- Test fixtures -----------------------------------------------------------
@@ -49,7 +46,8 @@ def config(serve_dir):
 @pytest.fixture
 def server(config):
     """Start a real HTTP server on a random port, yield base URL, shut down after."""
-    handler = partial(KartaHandler, config)
+    sessions = SessionStore()
+    handler = partial(KartaHandler, config, sessions)
     httpd = HTTPServer(("127.0.0.1", 0), handler)
     port = httpd.server_address[1]
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
@@ -77,32 +75,32 @@ def _get(url, path="/"):
 class TestLogStyled:
     def test_plain_when_not_tty(self):
         with patch("sys.stderr.isatty", return_value=False):
-            assert _log_styled("text", "32") == "text"
+            assert log_styled("text", "32") == "text"
 
     def test_styled_when_tty(self):
         with patch("sys.stderr.isatty", return_value=True):
-            assert _log_styled("text", "32") == "\033[32mtext\033[0m"
+            assert log_styled("text", "32") == "\033[32mtext\033[0m"
 
 
 class TestStatusColor:
     def test_2xx_green(self):
         with patch("sys.stderr.isatty", return_value=True):
-            result = _status_color(200)
+            result = status_color(200)
             assert "\033[32m" in result
 
     def test_3xx_yellow(self):
         with patch("sys.stderr.isatty", return_value=True):
-            result = _status_color(301)
+            result = status_color(301)
             assert "\033[33m" in result
 
     def test_4xx_red(self):
         with patch("sys.stderr.isatty", return_value=True):
-            result = _status_color(404)
+            result = status_color(404)
             assert "\033[31m" in result
 
     def test_5xx_red(self):
         with patch("sys.stderr.isatty", return_value=True):
-            result = _status_color(500)
+            result = status_color(500)
             assert "\033[31m" in result
 
 
