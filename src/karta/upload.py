@@ -228,7 +228,7 @@ def handle_upload(
         # Path containment check — use realpath to catch symlink escapes
         real_save = os.path.realpath(save_path)
         real_base = os.path.realpath(base_dir)
-        if not real_save.startswith(real_base + os.sep):
+        if not real_save.startswith(real_base + os.sep):  # pragma: no cover — defense-in-depth
             raise UploadError(f"Path traversal blocked for '{raw_filename}'")
 
         save_path.write_bytes(data)
@@ -264,7 +264,7 @@ def handle_create_folder(
 
     real_folder = os.path.realpath(folder_path)
     real_base = os.path.realpath(base_dir)
-    if not real_folder.startswith(real_base + os.sep):
+    if not real_folder.startswith(real_base + os.sep):  # pragma: no cover — defense-in-depth
         raise UploadError(f"Path traversal blocked for '{folder_name}'")
 
     if folder_path.exists():

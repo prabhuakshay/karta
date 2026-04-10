@@ -266,7 +266,7 @@ class KartaHandler(BaseHTTPRequestHandler):
             return
 
         folder_name = query.get("mkdir", [""])[0]
-        if not folder_name:
+        if not folder_name:  # pragma: no cover — parse_qs drops blank values
             self._send_error(400, "Folder name required")
             return
 
