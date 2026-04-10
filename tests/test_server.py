@@ -218,6 +218,26 @@ class TestRequestLogging:
         handler.log_message("test %s", "arg")
 
 
+# -- Favicon -----------------------------------------------------------------
+
+
+class TestFavicon:
+    def test_favicon_returns_png(self, server):
+        status, headers, body = _get(server, "/favicon.ico")
+        assert status == 200
+        assert headers["Content-Type"] == "image/png"
+        assert body[:4] == b"\x89PNG"
+
+    def test_favicon_has_cache_header(self, server):
+        _, headers, _ = _get(server, "/favicon.ico")
+        assert "max-age=86400" in headers["Cache-Control"]
+
+    def test_favicon_not_logged(self, server, capsys):
+        _get(server, "/favicon.ico")
+        err = capsys.readouterr().err
+        assert "favicon" not in err
+
+
 # -- run_server --------------------------------------------------------------
 
 
