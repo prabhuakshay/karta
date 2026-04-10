@@ -94,6 +94,7 @@ ignore = [
 "src/karta/__init__.py" = ["T20"]
 "src/karta/cli.py" = ["T20"]
 "src/karta/__main__.py" = ["T20"]
+"src/karta/server.py" = ["T20", "ARG002"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
