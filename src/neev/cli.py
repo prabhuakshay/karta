@@ -261,6 +261,10 @@ def build_config(args: argparse.Namespace) -> Config:
     directory = _validate_directory(args.directory)
     username, password = _resolve_auth(args)
 
+    if args.max_zip_size < 1:
+        _print_error("--max-zip-size must be at least 1 MB")
+        raise SystemExit(1)
+
     enable_upload = args.enable_upload
     if args.read_only:
         enable_upload = False
