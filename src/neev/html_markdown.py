@@ -32,7 +32,7 @@ _MARKDOWN_TEMPLATE = """\
     integrity="sha384-RH2xi4eIQ/gjtbs9fUXM68sLSi99C7ZWBRX1vDrVv6GQXRibxXLbwO2NGZB74MbU"
     crossorigin="anonymous"></script>
   <style>
-{css}
+$css
   </style>
 </head>
 <body class="bg-surface-0 text-ink-700 font-sans min-h-screen
@@ -120,7 +120,7 @@ _MARKDOWN_TEMPLATE = """\
   </footer>
 
   <script>
-{js}
+$js
   </script>
 </body>
 </html>"""
@@ -138,10 +138,10 @@ def render_markdown_preview(filename: str, raw_url: str, raw_url_js: str, parent
     Returns:
         Complete HTML page as a string.
     """
-    js = MARKDOWN_JS.format(raw_url=raw_url_js)
-    html_str = _MARKDOWN_TEMPLATE.replace("{css}", MARKDOWN_CSS)
-    html_str = html_str.replace("{js}", js)
-    return Template(html_str).safe_substitute(
+    js = Template(MARKDOWN_JS).safe_substitute(raw_url=raw_url_js)
+    return Template(_MARKDOWN_TEMPLATE).safe_substitute(
+        css=MARKDOWN_CSS,
+        js=js,
         filename=filename,
         raw_url=raw_url,
         parent_url=parent_url,

@@ -74,10 +74,9 @@ MARKDOWN_CSS = """\
     .md-body h5:hover .heading-anchor, .md-body h6:hover .heading-anchor {
       opacity: 1; }"""
 
-# Uses {{ / }} for literal braces since this is .format()-interpolated
 MARKDOWN_JS = """\
-    (function() {{
-      var rawUrl = {raw_url};
+    (function() {
+      var rawUrl = $raw_url;
       var mdEl = document.getElementById("md-content");
       var rawEl = document.getElementById("raw-content");
       var renderedEl = document.getElementById("rendered");
@@ -86,37 +85,37 @@ MARKDOWN_JS = """\
       var showRaw = false;
       var rawText = "";
 
-      function sanitize(html) {{
-        if (typeof DOMPurify !== "undefined") {{
-          return DOMPurify.sanitize(html, {{
+      function sanitize(html) {
+        if (typeof DOMPurify !== "undefined") {
+          return DOMPurify.sanitize(html, {
             ADD_TAGS: ["pre"],
             ADD_ATTR: ["class", "id"]
-          }});
-        }}
+          });
+        }
         return html;
-      }}
+      }
 
-      toggleBtn.addEventListener("click", function() {{
+      toggleBtn.addEventListener("click", function() {
         showRaw = !showRaw;
         renderedEl.classList.toggle("hidden", showRaw);
         rawViewEl.classList.toggle("hidden", !showRaw);
         toggleBtn.querySelector("span").textContent =
           showRaw ? "Rendered" : "Raw";
-      }});
+      });
 
-      fetch(rawUrl).then(function(r) {{
+      fetch(rawUrl).then(function(r) {
         if (!r.ok) throw new Error(r.status);
         return r.text();
-      }}).then(function(text) {{
+      }).then(function(text) {
         rawText = text;
         rawEl.textContent = text;
         renderMarkdown(text);
-      }}).catch(function() {{
+      }).catch(function() {
         mdEl.textContent = "Failed to load file content.";
-      }});
+      });
 
-      function renderMarkdown(text) {{
-        if (typeof marked === "undefined") {{
+      function renderMarkdown(text) {
+        if (typeof marked === "undefined") {
           var pre = document.createElement("pre");
           pre.style.whiteSpace = "pre-wrap";
           pre.style.wordBreak = "break-word";
@@ -129,21 +128,21 @@ MARKDOWN_JS = """\
           mdEl.appendChild(pre);
           mdEl.appendChild(note);
           return;
-        }}
+        }
 
         var renderer = new marked.Renderer();
-        renderer.code = function(obj) {{
-          if (obj.lang === "mermaid") {{
+        renderer.code = function(obj) {
+          if (obj.lang === "mermaid") {
             return '<pre class="mermaid">' +
               escapeHtml(obj.text) + "</pre>";
-          }}
+          }
           var langClass = obj.lang
             ? ' class="language-' + escapeHtml(obj.lang) + '"'
             : "";
           return '<pre><code' + langClass + '>' +
             escapeHtml(obj.text) + "</code></pre>";
-        }};
-        renderer.heading = function(obj) {{
+        };
+        renderer.heading = function(obj) {
           var slug = obj.text.toLowerCase()
             .replace(/<[^>]+>/g, "")
             .replace(/[^\\w\\s-]/g, "")
@@ -153,75 +152,75 @@ MARKDOWN_JS = """\
             '<a class="heading-anchor" href="#' + slug +
             '" aria-label="Link to this section">#</a>' +
             "</h" + obj.depth + ">";
-        }};
+        };
 
-        marked.setOptions({{
+        marked.setOptions({
           renderer: renderer, breaks: false, gfm: true
-        }});
+        });
         var parsed = marked.parse(text);
         mdEl.textContent = "";
         mdEl.insertAdjacentHTML("afterbegin", sanitize(parsed));
         highlightCode();
         addCopyButtons();
         initMermaid();
-      }}
+      }
 
-      function initMermaid() {{
+      function initMermaid() {
         if (typeof mermaid === "undefined") return;
-        mermaid.initialize({{
+        mermaid.initialize({
           startOnLoad: false,
           theme: "neutral",
           fontFamily: "Plus Jakarta Sans, system-ui, sans-serif"
-        }});
-        mermaid.run({{ querySelector: ".mermaid" }});
-      }}
+        });
+        mermaid.run({ querySelector: ".mermaid" });
+      }
 
-      function highlightCode() {{
+      function highlightCode() {
         if (typeof hljs === "undefined") return;
         mdEl.querySelectorAll("pre code[class*='language-']")
-          .forEach(function(block) {{
+          .forEach(function(block) {
             hljs.highlightElement(block);
-          }});
-      }}
+          });
+      }
 
-      function addCopyButtons() {{
+      function addCopyButtons() {
         mdEl.querySelectorAll("pre:not(.mermaid)").forEach(
-          function(pre) {{
+          function(pre) {
             var btn = document.createElement("button");
             btn.className = "code-copy";
             btn.textContent = "Copy";
-            btn.addEventListener("click", function() {{
+            btn.addEventListener("click", function() {
               var code = pre.querySelector("code");
               var text = code ? code.textContent : pre.textContent;
-              navigator.clipboard.writeText(text).then(function() {{
+              navigator.clipboard.writeText(text).then(function() {
                 btn.textContent = "Copied!";
-                setTimeout(function() {{
+                setTimeout(function() {
                   btn.textContent = "Copy";
-                }}, 1500);
-              }});
-            }});
+                }, 1500);
+              });
+            });
             pre.appendChild(btn);
-          }});
-      }}
+          });
+      }
 
-      function escapeHtml(s) {{
+      function escapeHtml(s) {
         var d = document.createElement("div");
         d.appendChild(document.createTextNode(s));
         return d.innerHTML;
-      }}
+      }
 
       /* Re-render once all resources settle: either apply CDN
          libs that arrived late, or show the offline fallback */
-      window.addEventListener("load", function() {{
+      window.addEventListener("load", function() {
         if (rawText) renderMarkdown(rawText);
-      }});
+      });
 
       /* Safety-net: if the spinner is still showing after 5s
          (e.g. CDN scripts blocking window.load), force the
          offline fallback so the page never hangs indefinitely */
-      setTimeout(function() {{
-        if (rawText && mdEl.querySelector(".animate-spin")) {{
+      setTimeout(function() {
+        if (rawText && mdEl.querySelector(".animate-spin")) {
           renderMarkdown(rawText);
-        }}
-      }}, 5000);
-    }})();"""
+        }
+      }, 5000);
+    })();"""
