@@ -9,12 +9,12 @@ from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
 
-# Inline SVG favicon — bold "K" on a teal circle
+# Inline SVG favicon — bold "N" on a teal circle
 FAVICON_SVG = (
     b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
     b'<circle cx="32" cy="32" r="30" fill="#0d9488"/>'
     b'<text x="32" y="44" font-family="sans-serif" font-size="36" '
-    b'font-weight="bold" fill="white" text-anchor="middle">K</text>'
+    b'font-weight="bold" fill="white" text-anchor="middle">N</text>'
     b"</svg>"
 )
 

@@ -10,7 +10,7 @@ _PREVIEW_HEADER = """\
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{filename} &mdash; neev</title>
-  <link rel="icon" href="/favicon.ico" type="image/svg+xml">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/_neev/static/neev.css">
 </head>
 <body class="bg-surface-0 text-ink-700 font-sans min-h-screen

@@ -251,7 +251,7 @@ class TestCurlAuth:
         assert status == 303
 
     def test_auth_required_for_favicon(self, auth_server):
-        status, _, _ = _request(auth_server, "/favicon.ico")
+        status, _, _ = _request(auth_server, "/favicon.svg")
         assert status == 303
 
 

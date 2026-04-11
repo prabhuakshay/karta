@@ -183,7 +183,7 @@ _LOGIN_TEMPLATE = """\
 <body>
   <div class="card">
     <div class="logo">
-      <div class="logo-icon"><span>K</span></div>
+      <div class="logo-icon"><span>N</span></div>
       <span class="logo-text">neev</span>
     </div>
 
