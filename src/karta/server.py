@@ -192,6 +192,9 @@ class KartaHandler(BaseHTTPRequestHandler):
             return
 
         content_length = int(self.headers.get("Content-Length", 0))
+        if content_length < 0 or content_length > 8192:
+            self._send_error(413, "Request too large")
+            return
         raw_body = self.rfile.read(content_length).decode("utf-8")
         params = parse_qs(raw_body)
 
