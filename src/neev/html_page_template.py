@@ -24,14 +24,14 @@ PAGE_TEMPLATE = """\
           <div class="w-7 h-7 rounded-lg bg-gradient-to-br
             from-sage-400 to-sage-600 flex items-center
             justify-center shadow-card
-            group-hover:shadow-card-md transition-shadow
+            group-hover:shadow-md transition-shadow
             duration-200">
             <span class="text-white font-bold
               text-xs leading-none">N</span>
           </div>
         </a>
         <nav class="flex items-center text-sm min-w-0
-          overflow-x-auto scrollbar-none">
+          overflow-x-auto">
           {breadcrumb_html}
         </nav>
       </div>
@@ -164,13 +164,13 @@ PAGE_TEMPLATE = """\
       <table class="w-full">
         <thead class="bg-surface-2/40">
           <tr class="border-b border-surface-3">
-            <th class="py-3 px-4 text-left text-label
+            <th class="py-3 px-4 text-left text-xs
               uppercase tracking-wider text-ink-400
               font-semibold">Name</th>
-            <th class="py-3 px-4 text-right text-label
+            <th class="py-3 px-4 text-right text-xs
               uppercase tracking-wider text-ink-400
               font-semibold hidden sm:table-cell">Size</th>
-            <th class="py-3 px-4 text-right text-label
+            <th class="py-3 px-4 text-right text-xs
               uppercase tracking-wider text-ink-400
               font-semibold hidden md:table-cell">Modified</th>
           </tr>
