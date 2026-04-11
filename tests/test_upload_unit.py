@@ -55,6 +55,10 @@ class TestExtractBoundary:
     def test_quoted_boundary(self):
         assert _extract_boundary('multipart/form-data; boundary="abc123"') == b"abc123"
 
+    def test_quoted_boundary_with_spaces(self):
+        # RFC 2046 allows spaces inside a quoted boundary value
+        assert _extract_boundary('multipart/form-data; boundary="my boundary"') == b"my boundary"
+
     def test_missing_boundary_raises(self):
         with pytest.raises(UploadError, match="boundary"):
             _extract_boundary("text/plain")

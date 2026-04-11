@@ -34,10 +34,11 @@ def _extract_boundary(content_type: str) -> bytes:
     Raises:
         UploadError: If the boundary cannot be found.
     """
-    match = re.search(r"boundary=([^\s;]+)", content_type)
+    # Quoted form: boundary="val with spaces"; unquoted form: boundary=val
+    match = re.search(r'boundary=(?:"([^"]+)"|([^\s;]+))', content_type)
     if not match:
         raise UploadError("Missing multipart boundary")
-    return match.group(1).strip('"').encode("ascii")
+    return (match.group(1) or match.group(2)).encode("ascii")
 
 
 def _parse_content_disposition(header_line: str) -> dict[str, str]:
