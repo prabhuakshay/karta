@@ -2,11 +2,12 @@
 
 Handles table rows (desktop), cards (mobile) for directory listings.
 File-type-aware icons with Lumina color coding.
-All user-controlled content is escaped via ``html.escape()``.
+Display text is escaped via ``html.escape()``; hrefs use ``urllib.parse.quote``.
 """
 
 import html
 from pathlib import PurePosixPath
+from urllib.parse import quote
 
 from karta.fs import FileEntry
 from karta.html_icons import icon_for_entry
@@ -56,7 +57,7 @@ def entry_href(entry: FileEntry, request_path: str) -> str:
         URL-safe href string.
     """
     base = request_path.rstrip("/") + "/"
-    name = html.escape(entry.name)
+    name = quote(entry.name, safe="")
     if entry.is_dir:
         return f"{base}{name}/"
     return f"{base}{name}"
