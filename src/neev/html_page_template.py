@@ -204,7 +204,7 @@ PAGE_TEMPLATE = """\
   function copyLink(ev, href) {{
     const btn = ev.currentTarget;
     const url = location.origin + href;
-    navigator.clipboard.writeText(url).then(() => {{
+    function onCopied() {{
       const copyIcon = btn.querySelector('.icon-copy');
       const checkIcon = btn.querySelector('.icon-check');
       if (copyIcon) copyIcon.style.display = 'none';
@@ -217,7 +217,20 @@ PAGE_TEMPLATE = """\
         btn.classList.remove('text-sage-500');
         btn.style.opacity = '';
       }}, 1500);
-    }});
+    }}
+    if (navigator.clipboard && navigator.clipboard.writeText) {{
+      navigator.clipboard.writeText(url).then(onCopied);
+    }} else {{
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      onCopied();
+    }}
   }}
   function submitZip(action, items) {{
     const f = document.createElement('form');

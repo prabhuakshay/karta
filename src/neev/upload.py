@@ -194,27 +194,24 @@ def handle_upload(
     boundary = _extract_boundary(content_type)
     parts = _parse_multipart(body, boundary)
 
-    # Collect relative paths from hidden fields (for folder uploads)
-    relative_paths: dict[int, str] = {}
-    file_parts: list[tuple[int, str, bytes]] = []
-    file_index = 0
+    # Pair each file with its preceding relativePath hidden field.
+    # Each relativePath field applies to the immediately following file part.
+    file_parts: list[tuple[str, str, bytes]] = []  # (rel_path, filename, data)
+    pending_rel_path = ""
 
     for field_name, filename, data in parts:
         if field_name == "relativePath" and not filename:
-            # Hidden field carrying the relative path for the next file
-            relative_paths[len(relative_paths)] = data.decode("utf-8", errors="replace")
+            pending_rel_path = data.decode("utf-8", errors="replace")
         elif filename:
-            file_parts.append((file_index, filename, data))
-            file_index += 1
+            file_parts.append((pending_rel_path, filename, data))
+            pending_rel_path = ""
 
     if not file_parts:
         raise UploadError("No file provided")
 
     saved: list[str] = []
 
-    for idx, (_, raw_filename, data) in enumerate(file_parts):
-        rel_path = relative_paths.get(idx, "")
-
+    for rel_path, raw_filename, data in file_parts:
         if rel_path and "/" in rel_path:
             # Folder upload — preserve directory structure
             safe_rel = _sanitize_relative_path(rel_path)

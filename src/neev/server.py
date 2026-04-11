@@ -10,6 +10,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from neev.auth import (
     COOKIE_NAME,
+    LoginRateLimiter,
     SessionStore,
     check_basic_auth,
     parse_cookie,
@@ -48,6 +49,7 @@ class NeevHandler(BaseHTTPRequestHandler):
         self,
         config: Config,
         sessions: SessionStore,
+        rate_limiter: LoginRateLimiter,
         request: Any,
         client_address: Any,
         server: HTTPServer,
@@ -57,12 +59,14 @@ class NeevHandler(BaseHTTPRequestHandler):
         Args:
             config: The resolved server configuration.
             sessions: Shared session store for auth tokens.
+            rate_limiter: Shared rate limiter for login attempts.
             request: The incoming socket request.
             client_address: The ``(host, port)`` of the client.
             server: The parent ``HTTPServer`` instance.
         """
         self.config = config
         self.sessions = sessions
+        self.rate_limiter = rate_limiter
         super().__init__(request, client_address, server)
 
     # -- Auth ----------------------------------------------------------------
@@ -104,6 +108,36 @@ class NeevHandler(BaseHTTPRequestHandler):
             return False
 
         self._redirect("/_neev/login")
+        return False
+
+    def _check_origin(self) -> bool:
+        """Reject cross-origin POST requests (CSRF defense).
+
+        Compares the Origin (or Referer) header against the Host header.
+        Requests with no Origin/Referer are allowed — they come from
+        curl/API clients, not browsers.
+
+        Returns:
+            ``True`` if the request may proceed, ``False`` if blocked.
+        """
+        origin = self.headers.get("Origin")
+        if origin is None:
+            referer = self.headers.get("Referer")
+            if referer is None:
+                return True
+            origin = referer.split("/")[0] + "//" + referer.split("/")[2]
+
+        host = self.headers.get("Host", "")
+        origin_host = origin.split("//", 1)[-1].rstrip("/")
+        if origin_host == host:
+            return True
+
+        body = b"403 Forbidden - origin mismatch"
+        self.send_response(403)
+        self.send_header("Content-Type", "text/plain")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
         return False
 
     def _send_401(self) -> None:
@@ -181,6 +215,9 @@ class NeevHandler(BaseHTTPRequestHandler):
         if not self._check_auth():
             return
 
+        if not self._check_origin():
+            return
+
         parsed = urlparse(self.path)
         request_path = unquote(parsed.path)
         query = parse_qs(parsed.query)
@@ -203,7 +240,7 @@ class NeevHandler(BaseHTTPRequestHandler):
 
     def _handle_login(self) -> None:
         """Process a login form POST and set a session cookie on success."""
-        handle_login(self, self.config, self.sessions)
+        handle_login(self, self.config, self.sessions, self.rate_limiter)
 
     def _handle_logout(self) -> None:
         """Invalidate the session and redirect to the login page."""
@@ -335,7 +372,8 @@ def run_server(config: Config) -> None:
         config: The resolved server configuration.
     """
     sessions = SessionStore()
-    handler = partial(NeevHandler, config, sessions)
+    rate_limiter = LoginRateLimiter()
+    handler = partial(NeevHandler, config, sessions, rate_limiter)
     server = HTTPServer((config.host, config.port), handler)
     try:
         server.serve_forever()

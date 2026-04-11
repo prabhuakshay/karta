@@ -11,7 +11,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 import pytest
 
-from neev.auth import COOKIE_NAME, SessionStore
+from neev.auth import COOKIE_NAME, LoginRateLimiter, SessionStore
 from neev.config import Config
 from neev.server import NeevHandler
 
@@ -46,7 +46,7 @@ def auth_config(auth_serve_dir):
 def auth_server(auth_config):
     """Start a server with auth enabled, yield base URL."""
     sessions = SessionStore()
-    handler = partial(NeevHandler, auth_config, sessions)
+    handler = partial(NeevHandler, auth_config, sessions, LoginRateLimiter())
     httpd = HTTPServer(("127.0.0.1", 0), handler)
     port = httpd.server_address[1]
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
