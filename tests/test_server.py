@@ -240,17 +240,17 @@ class TestRequestLogging:
 
 class TestFavicon:
     def test_favicon_returns_svg(self, server):
-        status, headers, body = _get(server, "/favicon.ico")
+        status, headers, body = _get(server, "/favicon.svg")
         assert status == 200
         assert headers["Content-Type"] == "image/svg+xml"
         assert b"<svg" in body
 
     def test_favicon_has_cache_header(self, server):
-        _, headers, _ = _get(server, "/favicon.ico")
+        _, headers, _ = _get(server, "/favicon.svg")
         assert "max-age=86400" in headers["Cache-Control"]
 
     def test_favicon_not_logged(self, server, capsys):
-        _get(server, "/favicon.ico")
+        _get(server, "/favicon.svg")
         err = capsys.readouterr().err
         assert "favicon" not in err
 

@@ -131,7 +131,7 @@ class NeevHandler(BaseHTTPRequestHandler):
         if not self._check_auth():
             return
 
-        if self.path == "/favicon.ico":
+        if self.path == "/favicon.svg":
             serve_favicon(self)
             return
 
@@ -316,7 +316,7 @@ class NeevHandler(BaseHTTPRequestHandler):
 
     def log_request(self, code: int | str = "-", size: int | str = 0) -> None:
         """Log a request with colored output to stderr."""
-        if self.path == "/favicon.ico":
+        if self.path == "/favicon.svg":
             return
         method = log_styled(self.command or "?", "1")
         path = log_styled(self.path, "36")

@@ -7,7 +7,7 @@ PAGE_TEMPLATE = """\
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{dir_name} &mdash; neev</title>
-  <link rel="icon" href="/favicon.ico" type="image/svg+xml">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/_neev/static/neev.css">
   <script defer src="/_neev/static/alpine.min.js"></script>
 </head>
