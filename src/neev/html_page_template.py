@@ -27,7 +27,7 @@ PAGE_TEMPLATE = """\
             group-hover:shadow-card-md transition-shadow
             duration-200">
             <span class="text-white font-bold
-              text-xs leading-none">K</span>
+              text-xs leading-none">N</span>
           </div>
         </a>
         <nav class="flex items-center text-sm min-w-0
