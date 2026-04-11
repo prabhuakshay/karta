@@ -71,6 +71,24 @@ def get_mime_type(path: Path) -> str:
     return content_type or "application/octet-stream"
 
 
+_PREVIEWABLE_PREFIXES = ("text/", "image/", "video/", "audio/")
+_PREVIEWABLE_TYPES = {"application/pdf", "application/json"}
+
+
+def is_previewable_type(mime_type: str) -> bool:
+    """Check whether a MIME type is safe for inline browser display.
+
+    Args:
+        mime_type: A MIME type string (e.g. ``image/png``).
+
+    Returns:
+        ``True`` if browsers can typically render the type inline.
+    """
+    if mime_type in _PREVIEWABLE_TYPES:
+        return True
+    return mime_type.startswith(_PREVIEWABLE_PREFIXES)
+
+
 def list_directory(path: Path, show_hidden: bool) -> list[FileEntry]:
     """List a directory's contents as FileEntry objects.
 

@@ -16,7 +16,7 @@ from neev.auth import (
     parse_cookie,
 )
 from neev.config import Config
-from neev.fs import get_mime_type, list_directory, resolve_safe_path
+from neev.fs import get_mime_type, is_previewable_type, list_directory, resolve_safe_path
 from neev.html import render_directory_listing
 from neev.log import log_styled, status_color
 from neev.server_assets import serve_favicon, serve_static
@@ -152,7 +152,8 @@ class NeevHandler(BaseHTTPRequestHandler):
             self._serve_directory(request_path, resolved)
             return
 
-        self._serve_file(resolved)
+        force_download = "download" in parse_qs(parsed.query)
+        self._serve_file(resolved, force_download=force_download)
 
     def do_POST(self) -> None:
         """Handle POST requests: login, file uploads, folder creation."""
@@ -210,10 +211,17 @@ class NeevHandler(BaseHTTPRequestHandler):
         if self._auth_enabled():
             self.send_header("Cache-Control", "no-store")
 
-    def _serve_file(self, path: Path) -> None:
+    def _serve_file(self, path: Path, *, force_download: bool = False) -> None:
         """Stream a file to the client in 64 KB chunks, keeping memory flat."""
+        mime_type = get_mime_type(path)
+        if force_download or not is_previewable_type(mime_type):
+            disposition = f'attachment; filename="{path.name}"'
+        else:
+            disposition = f'inline; filename="{path.name}"'
+
         self.send_response(200)
-        self.send_header("Content-Type", get_mime_type(path))
+        self.send_header("Content-Type", mime_type)
+        self.send_header("Content-Disposition", disposition)
         self.send_header("Content-Length", str(path.stat().st_size))
         self._cache_header()
         self.end_headers()
