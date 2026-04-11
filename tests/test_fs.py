@@ -1,6 +1,12 @@
 from datetime import UTC, datetime
 
-from neev.fs import FileEntry, get_mime_type, list_directory, resolve_safe_path
+from neev.fs import (
+    FileEntry,
+    format_content_disposition,
+    get_mime_type,
+    list_directory,
+    resolve_safe_path,
+)
 
 
 # -- resolve_safe_path -------------------------------------------------------
@@ -194,3 +200,50 @@ class TestFileEntry:
         assert entry.name == "test.txt"
         assert entry.is_dir is False
         assert entry.size == 100
+
+
+# -- format_content_disposition ----------------------------------------------
+
+
+class TestFormatContentDisposition:
+    def test_simple_filename(self):
+        result = format_content_disposition("attachment", "report.pdf")
+        assert result.startswith("attachment; ")
+        assert 'filename="report.pdf"' in result
+        assert "filename*=UTF-8''report.pdf" in result
+
+    def test_inline_disposition(self):
+        result = format_content_disposition("inline", "image.png")
+        assert result.startswith("inline; ")
+
+    def test_double_quotes_escaped(self):
+        result = format_content_disposition("attachment", 'evil"file.txt')
+        assert 'filename="evil\\"file.txt"' in result
+        assert "filename*=UTF-8''evil%22file.txt" in result
+
+    def test_backslash_escaped(self):
+        result = format_content_disposition("attachment", "back\\slash.txt")
+        assert 'filename="back\\\\slash.txt"' in result
+
+    def test_crlf_stripped_from_ascii(self):
+        result = format_content_disposition("attachment", "inject\r\nHeader: bad")
+        assert "\r" not in result.split("filename*")[0]
+        assert "\n" not in result.split("filename*")[0]
+
+    def test_null_byte_stripped(self):
+        result = format_content_disposition("attachment", "null\x00byte.txt")
+        assert "\x00" not in result.split("filename*")[0]
+
+    def test_non_ascii_preserved_in_filename_star(self):
+        result = format_content_disposition("attachment", "\u00fcber.txt")
+        assert "filename*=UTF-8''" in result
+        assert "%C3%BC" in result
+
+    def test_header_injection_attempt(self):
+        """A filename designed to inject headers must be neutralized."""
+        malicious = 'file.txt"\r\nX-Injected: true\r\n\r\n'
+        result = format_content_disposition("attachment", malicious)
+        # Control chars stripped from ASCII filename
+        ascii_part = result.split("filename*")[0]
+        assert "\r" not in ascii_part
+        assert "\n" not in ascii_part
