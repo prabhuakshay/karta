@@ -4,13 +4,12 @@ Handles POST requests with selected item names, creates a ZIP of those items,
 and streams it to the client.
 """
 
-import re
 import shutil
 from http.server import BaseHTTPRequestHandler
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, unquote
 
-from neev.fs import resolve_safe_path
+from neev.fs import format_content_disposition, resolve_safe_path
 from neev.zip import ZipSizeLimitError, create_selective_zip_stream
 
 
@@ -66,7 +65,7 @@ def serve_selective_zip(handler: "NeevHandler", request_path: str) -> None:
         _send_text(handler, 404, b"Directory not found")
         return
 
-    dir_name = re.sub(r"[^\w. -]", "_", resolved.name or "root")
+    zip_name = (resolved.name or "root") + "-selected.zip"
     try:
         stream = create_selective_zip_stream(
             directory=resolved,
@@ -87,7 +86,7 @@ def serve_selective_zip(handler: "NeevHandler", request_path: str) -> None:
     handler.send_header("Content-Length", str(size))
     handler.send_header(
         "Content-Disposition",
-        f'attachment; filename="{dir_name}-selected.zip"',
+        format_content_disposition("attachment", zip_name),
     )
     handler.end_headers()
     shutil.copyfileobj(stream, handler.wfile)

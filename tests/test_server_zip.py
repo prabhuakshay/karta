@@ -172,9 +172,11 @@ class TestZipDownload:
         try:
             status, headers, _ = _get(base, f"/{quote(bad_name, safe='')}/?zip")
             assert status == 200
-            # The filename value between the outer quotes must contain no literal quotes
-            filename_value = headers["Content-Disposition"].split('filename="', 1)[1].rstrip('"')
-            assert '"' not in filename_value
+            disposition = headers["Content-Disposition"]
+            # Quotes in the filename must be backslash-escaped, not raw
+            assert 'filename="evil\\"' in disposition
+            # Must include RFC 5987 filename* for full Unicode support
+            assert "filename*=UTF-8''" in disposition
         finally:
             httpd.shutdown()
             httpd.server_close()
