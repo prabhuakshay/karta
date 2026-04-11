@@ -11,7 +11,7 @@ from urllib.request import Request, urlopen
 
 import pytest
 
-from neev.auth import SessionStore
+from neev.auth import LoginRateLimiter, SessionStore
 from neev.config import Config
 from neev.server import NeevHandler
 
@@ -49,7 +49,7 @@ def zip_config(serve_dir):
 def zip_server(zip_config):
     """Start a server with ZIP downloads enabled."""
     sessions = SessionStore()
-    handler = partial(NeevHandler, zip_config, sessions)
+    handler = partial(NeevHandler, zip_config, sessions, LoginRateLimiter())
     httpd = HTTPServer(("127.0.0.1", 0), handler)
     port = httpd.server_address[1]
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
@@ -87,7 +87,7 @@ def _post(url, path="/", body=b"", content_type="application/x-www-form-urlencod
 def _zip_server_for(config: Config):
     """Start a ZIP-enabled server for the given config; return (httpd, base_url)."""
     sessions = SessionStore()
-    handler = partial(NeevHandler, config, sessions)
+    handler = partial(NeevHandler, config, sessions, LoginRateLimiter())
     httpd = HTTPServer(("127.0.0.1", 0), handler)
     port = httpd.server_address[1]
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)

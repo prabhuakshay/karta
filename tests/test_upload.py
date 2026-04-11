@@ -8,7 +8,7 @@ from urllib.request import Request, urlopen
 
 import pytest
 
-from neev.auth import SessionStore
+from neev.auth import LoginRateLimiter, SessionStore
 from neev.config import Config
 from neev.server import NeevHandler
 from neev.upload import MAX_UPLOAD_SIZE
@@ -42,7 +42,7 @@ def _make_config(serve_dir, enable_upload):
 
 def _start_server(config):
     sessions = SessionStore()
-    handler = partial(NeevHandler, config, sessions)
+    handler = partial(NeevHandler, config, sessions, LoginRateLimiter())
     httpd = HTTPServer(("127.0.0.1", 0), handler)
     port = httpd.server_address[1]
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)

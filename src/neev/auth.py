@@ -162,6 +162,79 @@ class SessionStore:
             logger.debug("Pruned %d expired session token(s)", len(expired))
 
 
+# -- Login rate limiting -----------------------------------------------------
+
+# After this many consecutive failures, start blocking.
+MAX_LOGIN_ATTEMPTS = 5
+
+# Initial cooldown in seconds; doubles on each subsequent failure.
+BASE_COOLDOWN = 30
+
+# Never block longer than this.
+MAX_COOLDOWN = 300
+
+
+class LoginRateLimiter:
+    """Per-IP login rate limiter with exponential backoff.
+
+    Tracks consecutive failed login attempts per client IP. After
+    ``MAX_LOGIN_ATTEMPTS`` failures, further attempts are blocked for a
+    cooldown that doubles with each additional failure, up to
+    ``MAX_COOLDOWN`` seconds.
+
+    Thread-safe — uses the same locking pattern as ``SessionStore``.
+    """
+
+    def __init__(self) -> None:
+        """Initialize an empty rate limiter."""
+        self._lock = threading.Lock()
+        # Maps IP → (consecutive_failures, last_failure_monotonic).
+        self._attempts: dict[str, tuple[int, float]] = {}
+
+    def is_blocked(self, ip: str) -> bool:
+        """Check whether an IP is currently in a cooldown period.
+
+        Args:
+            ip: The client IP address.
+
+        Returns:
+            ``True`` if the IP must wait before retrying.
+        """
+        with self._lock:
+            record = self._attempts.get(ip)
+            if record is None:
+                return False
+            failures, last_failure = record
+            if failures < MAX_LOGIN_ATTEMPTS:
+                return False
+            cooldown = min(
+                BASE_COOLDOWN * 2 ** (failures - MAX_LOGIN_ATTEMPTS),
+                MAX_COOLDOWN,
+            )
+            return (time.monotonic() - last_failure) < cooldown
+
+    def record_failure(self, ip: str) -> None:
+        """Record a failed login attempt for an IP.
+
+        Args:
+            ip: The client IP address.
+        """
+        with self._lock:
+            record = self._attempts.get(ip)
+            failures = (record[0] + 1) if record else 1
+            self._attempts[ip] = (failures, time.monotonic())
+        logger.warning("Failed login attempt %d from %s", failures, ip)
+
+    def record_success(self, ip: str) -> None:
+        """Clear the failure record for an IP after a successful login.
+
+        Args:
+            ip: The client IP address.
+        """
+        with self._lock:
+            self._attempts.pop(ip, None)
+
+
 # -- Cookie helpers ----------------------------------------------------------
 
 

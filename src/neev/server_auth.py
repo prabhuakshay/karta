@@ -8,7 +8,13 @@ same pattern as ``server_upload`` and ``server_assets``. Extracted from
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import parse_qs
 
-from neev.auth import COOKIE_NAME, SessionStore, check_credentials, parse_cookie
+from neev.auth import (
+    COOKIE_NAME,
+    LoginRateLimiter,
+    SessionStore,
+    check_credentials,
+    parse_cookie,
+)
 from neev.config import Config
 from neev.html_login import render_login_page
 
@@ -29,15 +35,27 @@ def serve_login_page(handler: BaseHTTPRequestHandler, error: str | None = None) 
     handler.wfile.write(body)
 
 
-def handle_login(handler: BaseHTTPRequestHandler, config: Config, sessions: SessionStore) -> None:
+def handle_login(
+    handler: BaseHTTPRequestHandler,
+    config: Config,
+    sessions: SessionStore,
+    rate_limiter: LoginRateLimiter,
+) -> None:
     """Process a login form POST and set a session cookie on success.
 
     Args:
         handler: The active request handler.
         config: The resolved server configuration.
         sessions: Shared session store for auth tokens.
+        rate_limiter: Shared rate limiter for login attempts.
     """
     if config.username is None or config.password is None:  # pragma: no cover
+        return
+
+    client_ip = handler.client_address[0]
+
+    if rate_limiter.is_blocked(client_ip):
+        _send_error(handler, 429, "Too many login attempts. Try again later.")
         return
 
     try:
@@ -56,9 +74,11 @@ def handle_login(handler: BaseHTTPRequestHandler, config: Config, sessions: Sess
     password = params.get("password", [""])[0]
 
     if not check_credentials(username, password, config.username, config.password):
+        rate_limiter.record_failure(client_ip)
         serve_login_page(handler, error="Invalid username or password.")
         return
 
+    rate_limiter.record_success(client_ip)
     token = sessions.create()
     handler.send_response(303)
     handler.send_header("Location", "/")
