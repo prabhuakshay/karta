@@ -238,7 +238,7 @@ def _submit_bar() -> str:
         f'<div class="px-5 py-3 border-t border-surface-3 '
         f'flex items-center justify-between bg-surface-2/40">'
         f'<p class="text-xs text-ink-400">'
-        f'<span x-text="files.length" class="tabular"></span>'
+        f'<span x-text="files.length" class="tabular-nums"></span>'
         f' file<span x-show="files.length !== 1">s</span> selected</p>'
         f'<div class="flex items-center gap-2">'
         f'<button type="button" @click="clearFiles()" '
