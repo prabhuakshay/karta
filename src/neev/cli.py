@@ -6,26 +6,9 @@ import sys
 from pathlib import Path
 
 from neev.config import Config
+from neev.log import ansi_styled
 from neev.server import run_server
 from neev.toml_config import load_toml, merge_toml_into_args
-
-
-# -- ANSI styling helpers --------------------------------------------------
-
-
-def _styled(text: str, code: str) -> str:
-    """Wrap text in ANSI escape codes, resetting after.
-
-    Args:
-        text: The string to style.
-        code: ANSI SGR code (e.g. ``"1"`` for bold, ``"32"`` for green).
-
-    Returns:
-        The styled string, or the original text if stdout is not a terminal.
-    """
-    if not sys.stdout.isatty():
-        return text
-    return f"\033[{code}m{text}\033[0m"
 
 
 def _print_error(message: str) -> None:
@@ -49,7 +32,7 @@ def _on(label: str) -> str:
     Returns:
         Green-styled text.
     """
-    return _styled(label, "32")
+    return ansi_styled(label, "32", stream=sys.stdout)
 
 
 def _off(label: str) -> str:
@@ -61,7 +44,7 @@ def _off(label: str) -> str:
     Returns:
         Dim-styled text.
     """
-    return _styled(label, "2")
+    return ansi_styled(label, "2", stream=sys.stdout)
 
 
 # -- Parsing and validation ------------------------------------------------
@@ -226,9 +209,9 @@ def _print_startup_banner(config: Config) -> None:
     Args:
         config: The resolved server configuration.
     """
-    url = _styled(f"http://{config.host}:{config.port}", "1;36")
-    directory = _styled(str(config.directory), "1")
-    serving = _styled("Serving", "1;36")
+    url = ansi_styled(f"http://{config.host}:{config.port}", "1;36", stream=sys.stdout)
+    directory = ansi_styled(str(config.directory), "1", stream=sys.stdout)
+    serving = ansi_styled("Serving", "1;36", stream=sys.stdout)
 
     auth_status = _on(f"enabled (user: {config.username})") if config.username else _off("disabled")
     upload_status = _on("enabled") if config.enable_upload else _off("disabled")

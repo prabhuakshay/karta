@@ -2,20 +2,20 @@
 
 from unittest.mock import patch
 
-from neev.log import log_styled, status_color
+from neev.log import ansi_styled, status_color
 
 
 # -- ANSI styling ------------------------------------------------------------
 
 
-class TestLogStyled:
+class TestAnsiStyled:
     def test_plain_when_not_tty(self):
         with patch("sys.stderr.isatty", return_value=False):
-            assert log_styled("text", "32") == "text"
+            assert ansi_styled("text", "32") == "text"
 
     def test_styled_when_tty(self):
         with patch("sys.stderr.isatty", return_value=True):
-            assert log_styled("text", "32") == "\033[32mtext\033[0m"
+            assert ansi_styled("text", "32") == "\033[32mtext\033[0m"
 
 
 class TestStatusColor:

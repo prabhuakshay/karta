@@ -15,7 +15,7 @@ from neev.auth import (
 )
 from neev.config import Config
 from neev.fs import get_mime_type, is_markdown_file, is_previewable_type, resolve_safe_path
-from neev.log import log_styled, status_color
+from neev.log import ansi_styled, status_color
 from neev.server_assets import serve_favicon, serve_static
 from neev.server_auth import handle_login, handle_logout, serve_login_page
 from neev.server_core import serve_directory, serve_file, serve_zip
@@ -268,8 +268,8 @@ class NeevHandler(BaseHTTPRequestHandler):
         """Log a request with colored output to stderr."""
         if self.path == "/favicon.svg":
             return
-        method = log_styled(self.command or "?", "1")
-        path = log_styled(self.path, "36")
+        method = ansi_styled(self.command or "?", "1")
+        path = ansi_styled(self.path, "36")
         status = status_color(int(code)) if str(code).isdigit() else str(code)
         print(f"  {method} {path} {status}", file=sys.stderr)
 
