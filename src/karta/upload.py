@@ -126,6 +126,9 @@ def sanitize_filename(raw: str) -> str:
     Raises:
         UploadError: If the filename is empty after sanitization.
     """
+    # Null bytes can truncate paths at the C level — always a red flag
+    if "\x00" in raw:
+        raise UploadError("Filename contains null byte")
     # Replace backslashes (Windows paths uploaded from browsers)
     cleaned = raw.replace("\\", "/")
     # Take only the final path component
