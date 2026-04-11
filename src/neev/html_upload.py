@@ -50,14 +50,14 @@ _FILE_ICON = (
 
 _BTN_PRIMARY = (
     "inline-flex items-center gap-2 px-5 py-2 bg-sage-400 "
-    "text-white text-sm font-semibold rounded-lg hover:bg-sage-500 "
-    "active:bg-sage-600 transition-colors duration-150"
+    "text-white text-sm font-semibold rounded-lg hover:bg-sage-600 "
+    "hover:shadow-md active:bg-sage-700 transition-all duration-150"
 )
 
 _INPUT_CLS = (
-    "w-full px-3.5 py-2 bg-surface-1 border border-surface-3 "
+    "w-full px-3.5 py-2 bg-surface-1 border border-surface-4 "
     "rounded-lg text-sm text-ink-700 placeholder:text-ink-300 "
-    "hover:border-surface-4 focus:border-sage-400 "
+    "hover:border-ink-300 focus:border-sage-400 "
     "focus:ring-2 focus:ring-sage-50 transition-colors duration-150"
 )
 
