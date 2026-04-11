@@ -4,6 +4,7 @@ import base64
 import hmac
 import logging
 import secrets
+import threading
 import time
 
 
@@ -111,6 +112,7 @@ class SessionStore:
 
     def __init__(self) -> None:
         """Initialize an empty session store."""
+        self._lock = threading.Lock()
         # Maps token → monotonic creation timestamp.
         self._tokens: dict[str, float] = {}
 
@@ -120,10 +122,11 @@ class SessionStore:
         Returns:
             A cryptographically random URL-safe token.
         """
-        self._prune()
-        token = secrets.token_urlsafe(32)
-        self._tokens[token] = time.monotonic()
-        return token
+        with self._lock:
+            self._prune()
+            token = secrets.token_urlsafe(32)
+            self._tokens[token] = time.monotonic()
+            return token
 
     def validate(self, token: str) -> bool:
         """Check whether a session token is valid and unexpired.
@@ -134,10 +137,11 @@ class SessionStore:
         Returns:
             ``True`` if the token exists and has not exceeded ``TOKEN_TTL``.
         """
-        created_at = self._tokens.get(token)
-        if created_at is None:
-            return False
-        return (time.monotonic() - created_at) < TOKEN_TTL
+        with self._lock:
+            created_at = self._tokens.get(token)
+            if created_at is None:
+                return False
+            return (time.monotonic() - created_at) < TOKEN_TTL
 
     def invalidate(self, token: str) -> None:
         """Remove a session token.
@@ -145,7 +149,8 @@ class SessionStore:
         Args:
             token: The token to invalidate.
         """
-        self._tokens.pop(token, None)
+        with self._lock:
+            self._tokens.pop(token, None)
 
     def _prune(self) -> None:
         """Remove all tokens that have exceeded ``TOKEN_TTL``."""
