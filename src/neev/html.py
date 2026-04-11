@@ -202,7 +202,8 @@ def render_directory_listing(
             f'<a href="{zip_href}" class="inline-flex items-center gap-2'
             " px-3.5 py-2 bg-surface-1 text-ink-700 text-sm font-semibold"
             " rounded-lg border border-surface-3 hover:bg-surface-2"
-            " active:bg-surface-3 transition-colors duration-150"
+            " hover:border-surface-4 hover:shadow-sm"
+            " active:bg-surface-3 transition-all duration-150"
             ' whitespace-nowrap" title="Download as ZIP">'
             '<svg class="w-4 h-4" fill="none" stroke="currentColor"'
             ' viewBox="0 0 24 24"><path stroke-linecap="round"'

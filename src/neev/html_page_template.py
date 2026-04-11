@@ -82,10 +82,10 @@ PAGE_TEMPLATE = """\
         <input x-model="filter" type="text"
           placeholder="Filter&hellip;"
           class="w-full sm:w-72 pl-10 pr-4 py-2.5
-            bg-surface-2 border border-surface-3
+            bg-surface-1 border border-surface-4
             rounded-md text-sm text-ink-700
             placeholder:text-ink-300
-            hover:border-surface-4
+            hover:border-ink-300
             focus:border-sage-400 focus:bg-surface-1
             focus:ring-2 focus:ring-sage-50
             transition-colors duration-150">

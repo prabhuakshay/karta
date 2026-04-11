@@ -111,8 +111,8 @@ _LOGIN_TEMPLATE = """\
       font-size: 0.875rem;
       font-family: inherit;
       color: #332F2A;
-      background: #F2EFEA;
-      border: 1px solid #E5E1DA;
+      background: #FFFFFF;
+      border: 1px solid #D4CFC6;
       border-radius: 8px;
       outline: none;
       transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
@@ -120,7 +120,7 @@ _LOGIN_TEMPLATE = """\
 
     input[type="text"]:hover,
     input[type="password"]:hover {{
-      border-color: #D4CFC6;
+      border-color: #ADA89F;
     }}
 
     input[type="text"]:focus,
@@ -145,13 +145,13 @@ _LOGIN_TEMPLATE = """\
       border: none;
       border-radius: 8px;
       cursor: pointer;
-      transition: opacity 0.15s, box-shadow 0.15s;
+      transition: background 0.15s, box-shadow 0.15s;
       margin-top: 6px;
     }}
 
     button:hover {{
-      opacity: 0.92;
-      box-shadow: 0 2px 8px rgba(71, 128, 109, 0.25);
+      background: linear-gradient(135deg, #47806D, #386658);
+      box-shadow: 0 4px 12px rgba(71, 128, 109, 0.3);
     }}
 
     button:focus-visible {{
@@ -160,7 +160,7 @@ _LOGIN_TEMPLATE = """\
     }}
 
     button:active {{
-      opacity: 0.85;
+      background: #386658;
     }}
 
     .footer {{
