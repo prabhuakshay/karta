@@ -99,7 +99,15 @@ def render_upload_section(request_path: str) -> str:
 
 
 def _render_upload_form(action: str) -> str:
-    """Render the upload form with drop zone and file preview."""
+    """Render the upload form with drop zone and file preview.
+
+    Args:
+        action: The escaped URL the form POSTs to.
+
+    Returns:
+        HTML string — a ``<form>`` element containing the drop zone and
+        file preview panel.
+    """
     return (
         f'<form method="POST" action="{action}" '
         f'enctype="multipart/form-data" '
@@ -112,7 +120,12 @@ def _render_upload_form(action: str) -> str:
 
 
 def _drop_zone() -> str:
-    """Render the drag-and-drop target area."""
+    """Render the drag-and-drop target area.
+
+    Returns:
+        HTML string — a bordered dashed rectangle with upload icon, hint
+        text, segmented Files/Folder toggle, and hidden file inputs.
+    """
     return (
         f'<div class="p-5">'
         f"<div "
@@ -155,7 +168,12 @@ def _drop_zone() -> str:
 
 
 def _segmented_control() -> str:
-    """Render the Files/Folder segmented toggle."""
+    """Render the Files/Folder segmented toggle.
+
+    Returns:
+        HTML string — two-button pill toggle that switches between
+        individual-file and whole-folder upload mode.
+    """
     return (
         f'<div class="inline-flex items-center bg-surface-2 '
         f'p-1 rounded-lg mt-3">'
@@ -172,7 +190,13 @@ def _segmented_control() -> str:
 
 
 def _file_preview() -> str:
-    """Render the file list and submit bar (shown after selection)."""
+    """Render the file list and submit bar (shown after selection).
+
+    Returns:
+        HTML string — a scrollable list of selected files with per-file
+        remove buttons, followed by the submit bar.  Hidden until at
+        least one file is queued (Alpine ``x-show``).
+    """
     return (
         f'<div x-show="files.length > 0" x-cloak '
         f'class="border-t border-surface-3">'
@@ -202,7 +226,12 @@ def _file_preview() -> str:
 
 
 def _submit_bar() -> str:
-    """Render the file count and upload/clear buttons."""
+    """Render the file count and upload/clear buttons.
+
+    Returns:
+        HTML string — a footer row showing the selected-file count plus
+        Clear and Upload action buttons.
+    """
     return (
         f'<div class="px-5 py-3 border-t border-surface-3 '
         f'flex items-center justify-between bg-surface-2/40">'
@@ -225,7 +254,16 @@ def _submit_bar() -> str:
 
 
 def _render_create_folder(action: str) -> str:
-    """Render the create-folder row at the bottom of the card."""
+    """Render the create-folder row at the bottom of the card.
+
+    Args:
+        action: The escaped base URL; ``?mkdir=<name>`` is appended
+            client-side before submission.
+
+    Returns:
+        HTML string — a bordered footer row with a text input and
+        Create button for making a new subdirectory.
+    """
     return (
         f'<div class="border-t border-surface-3 bg-surface-2/30">'
         f'<form method="POST" '
