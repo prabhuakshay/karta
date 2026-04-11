@@ -191,6 +191,7 @@ def _entry_checkbox(html_name: str, js_name_attr: str) -> str:
     """
     return (
         f'<input type="checkbox" value="{html_name}"'
+        f' aria-label="Select {html_name}"'
         ' x-show="selectMode"'
         f" @click.stop=\"toggleItem('{js_name_attr}')\""
         f" :checked=\"isSelected('{js_name_attr}')\""
