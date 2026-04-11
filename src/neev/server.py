@@ -21,6 +21,7 @@ from neev.server_auth import handle_login, handle_logout, serve_login_page
 from neev.server_core import serve_directory, serve_file, serve_zip
 from neev.server_preview import serve_generic_preview, serve_markdown_preview
 from neev.server_upload import serve_mkdir, serve_upload
+from neev.server_utils import send_error
 from neev.server_zip import serve_selective_zip
 
 
@@ -259,12 +260,7 @@ class NeevHandler(BaseHTTPRequestHandler):
 
     def _send_error(self, code: int, message: str) -> None:
         """Send an error response with a plain-text body."""
-        body = message.encode()
-        self.send_response(code)
-        self.send_header("Content-Type", "text/plain; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        send_error(self, code, message)
 
     # -- Logging -------------------------------------------------------------
 

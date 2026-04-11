@@ -17,6 +17,7 @@ from neev.auth import (
 )
 from neev.config import Config
 from neev.html_login import render_login_page
+from neev.server_utils import send_error
 
 
 def _is_secure_context(handler: BaseHTTPRequestHandler) -> bool:
@@ -60,17 +61,17 @@ def handle_login(
     client_ip = handler.client_address[0]
 
     if rate_limiter.is_blocked(client_ip):
-        _send_error(handler, 429, "Too many login attempts. Try again later.")
+        send_error(handler, 429, "Too many login attempts. Try again later.")
         return
 
     try:
         content_length = int(handler.headers.get("Content-Length", 0))
     except ValueError:
-        _send_error(handler, 400, "Invalid Content-Length")
+        send_error(handler, 400, "Invalid Content-Length")
         return
 
     if content_length < 0 or content_length > 8192:
-        _send_error(handler, 413, "Request too large")
+        send_error(handler, 413, "Request too large")
         return
     raw_body = handler.rfile.read(content_length).decode("utf-8")
     params = parse_qs(raw_body)
@@ -117,12 +118,3 @@ def handle_logout(handler: BaseHTTPRequestHandler, sessions: SessionStore) -> No
     )
     handler.send_header("Cache-Control", "no-store")
     handler.end_headers()
-
-
-def _send_error(handler: BaseHTTPRequestHandler, code: int, message: str) -> None:
-    body = message.encode()
-    handler.send_response(code)
-    handler.send_header("Content-Type", "text/plain; charset=utf-8")
-    handler.send_header("Content-Length", str(len(body)))
-    handler.end_headers()
-    handler.wfile.write(body)
