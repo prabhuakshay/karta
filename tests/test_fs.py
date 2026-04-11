@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from karta.fs import FileEntry, list_directory, read_file, resolve_safe_path
+from karta.fs import FileEntry, get_mime_type, list_directory, resolve_safe_path
 
 
 # -- resolve_safe_path -------------------------------------------------------
@@ -71,64 +71,30 @@ class TestResolveSafePath:
         assert result == sub
 
 
-# -- read_file ---------------------------------------------------------------
+# -- get_mime_type -----------------------------------------------------------
 
 
-class TestReadFile:
-    def test_reads_content(self, tmp_path):
-        f = tmp_path / "hello.txt"
-        f.write_text("hello world")
-        content, _ = read_file(f)
-        assert content == b"hello world"
+class TestGetMimeType:
+    def test_html(self, tmp_path):
+        assert get_mime_type(tmp_path / "page.html") == "text/html"
 
-    def test_html_mime(self, tmp_path):
-        f = tmp_path / "page.html"
-        f.write_text("<h1>Hi</h1>")
-        _, content_type = read_file(f)
-        assert content_type == "text/html"
+    def test_json(self, tmp_path):
+        assert get_mime_type(tmp_path / "data.json") == "application/json"
 
-    def test_json_mime(self, tmp_path):
-        f = tmp_path / "data.json"
-        f.write_text("{}")
-        _, content_type = read_file(f)
-        assert content_type == "application/json"
+    def test_css(self, tmp_path):
+        assert get_mime_type(tmp_path / "style.css") == "text/css"
 
-    def test_css_mime(self, tmp_path):
-        f = tmp_path / "style.css"
-        f.write_text("body {}")
-        _, content_type = read_file(f)
-        assert content_type == "text/css"
+    def test_js(self, tmp_path):
+        assert "javascript" in get_mime_type(tmp_path / "app.js")
 
-    def test_js_mime(self, tmp_path):
-        f = tmp_path / "app.js"
-        f.write_text("console.log(1)")
-        _, content_type = read_file(f)
-        assert "javascript" in content_type
+    def test_png(self, tmp_path):
+        assert get_mime_type(tmp_path / "image.png") == "image/png"
 
-    def test_png_mime(self, tmp_path):
-        f = tmp_path / "image.png"
-        f.write_bytes(b"\x89PNG")
-        _, content_type = read_file(f)
-        assert content_type == "image/png"
-
-    def test_pdf_mime(self, tmp_path):
-        f = tmp_path / "doc.pdf"
-        f.write_bytes(b"%PDF")
-        _, content_type = read_file(f)
-        assert content_type == "application/pdf"
+    def test_pdf(self, tmp_path):
+        assert get_mime_type(tmp_path / "doc.pdf") == "application/pdf"
 
     def test_unknown_extension_fallback(self, tmp_path):
-        f = tmp_path / "data.xyz123"
-        f.write_bytes(b"\x00\x01")
-        _, content_type = read_file(f)
-        assert content_type == "application/octet-stream"
-
-    def test_binary_content(self, tmp_path):
-        f = tmp_path / "data.bin"
-        data = bytes(range(256))
-        f.write_bytes(data)
-        content, _ = read_file(f)
-        assert content == data
+        assert get_mime_type(tmp_path / "data.xyz123") == "application/octet-stream"
 
 
 # -- list_directory ----------------------------------------------------------

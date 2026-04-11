@@ -1,5 +1,6 @@
 """HTTP server and request handler for karta."""
 
+import shutil
 import sys
 from functools import partial
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -15,7 +16,7 @@ from karta.auth import (
     parse_cookie,
 )
 from karta.config import Config
-from karta.fs import list_directory, read_file, resolve_safe_path
+from karta.fs import get_mime_type, list_directory, resolve_safe_path
 from karta.html import render_directory_listing
 from karta.html_login import render_login_page
 from karta.log import log_styled, status_color
@@ -297,14 +298,14 @@ class KartaHandler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-store")
 
     def _serve_file(self, path: Path) -> None:
-        """Serve a file with correct Content-Type and Content-Length."""
-        content, content_type = read_file(path)
+        """Stream a file to the client in 64 KB chunks, keeping memory flat."""
         self.send_response(200)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(content)))
+        self.send_header("Content-Type", get_mime_type(path))
+        self.send_header("Content-Length", str(path.stat().st_size))
         self._cache_header()
         self.end_headers()
-        self.wfile.write(content)
+        with path.open("rb") as f:
+            shutil.copyfileobj(f, self.wfile, length=65536)
 
     def _serve_directory(self, request_path: str, resolved: Path) -> None:
         """Serve an HTML directory listing."""
