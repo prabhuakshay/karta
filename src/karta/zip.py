@@ -21,17 +21,21 @@ class ZipSizeLimitError(Exception):
     """Raised when the ZIP archive exceeds the configured size limit."""
 
 
-def create_zip_bytes(
+def create_zip_stream(
     directory: Path,
     base_dir: Path,
     show_hidden: bool,
     max_size: int,
-) -> bytes:
-    """Create a ZIP archive of a directory's contents and return it as bytes.
+) -> io.BytesIO:
+    """Create a ZIP archive of a directory's contents and return a stream.
 
     Walks the directory recursively, filtering hidden files unless
     ``show_hidden`` is ``True``. Every file path is re-validated against
     ``base_dir`` before inclusion.
+
+    The returned ``BytesIO`` is sought to position 0 and ready to read.
+    Callers should read (or copy) from it directly rather than calling
+    ``getvalue()``, which would create a redundant second copy in memory.
 
     Args:
         directory: The directory to archive.
@@ -40,7 +44,7 @@ def create_zip_bytes(
         max_size: Maximum allowed size of the ZIP buffer in bytes.
 
     Returns:
-        The complete ZIP archive as bytes.
+        A ``BytesIO`` stream containing the complete ZIP archive, sought to 0.
 
     Raises:
         ZipSizeLimitError: If the archive exceeds ``max_size``.
@@ -70,4 +74,5 @@ def create_zip_bytes(
                         f"ZIP archive exceeds {max_size // (1024 * 1024)} MB limit"
                     )
 
-    return buf.getvalue()
+    buf.seek(0)
+    return buf
