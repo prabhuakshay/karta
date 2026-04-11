@@ -23,6 +23,8 @@ _STATIC_MIME = {
     ".js": "application/javascript; charset=utf-8",
 }
 
+_asset_cache: dict[str, bytes] = {}
+
 
 def serve_static(handler: BaseHTTPRequestHandler, url_path: str) -> None:
     """Serve bundled static assets from the karta package.
@@ -37,8 +39,10 @@ def serve_static(handler: BaseHTTPRequestHandler, url_path: str) -> None:
         return
 
     try:
-        ref = importlib.resources.files("karta").joinpath("static", filename)
-        content = ref.read_bytes()
+        if filename not in _asset_cache:
+            ref = importlib.resources.files("karta").joinpath("static", filename)
+            _asset_cache[filename] = ref.read_bytes()
+        content = _asset_cache[filename]
     except (FileNotFoundError, TypeError):
         _send_error(handler, 404, "Not Found")
         return
