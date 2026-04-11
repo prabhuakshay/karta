@@ -4,15 +4,21 @@ Provides multipart form data parsing (stdlib-only, no ``cgi`` module),
 filename sanitization, size validation, and folder creation.
 """
 
+import io
 import logging
 import os
 import re
+import shutil
+import tempfile
+from collections.abc import Generator
 from pathlib import Path
 
 
 logger = logging.getLogger(__name__)
 
 MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100 MB
+_CHUNK_SIZE = 65_536  # 64 KB read chunks
+_SPOOL_MAX = 1_048_576  # 1 MB before SpooledTemporaryFile spills to disk
 
 
 class UploadError(Exception):
@@ -56,57 +62,125 @@ def _parse_content_disposition(header_line: str) -> dict[str, str]:
     return params
 
 
-def _parse_multipart(body: bytes, boundary: bytes) -> list[tuple[str, str, bytes]]:
-    """Parse a multipart/form-data body into its parts.
+class _MultipartStream:
+    """Streaming multipart/form-data parser that avoids buffering the full body.
 
-    Args:
-        body: The raw request body.
-        boundary: The boundary string from the Content-Type header.
-
-    Returns:
-        List of ``(field_name, filename, data)`` tuples.
-        For non-file fields, filename is empty string.
-
-    Raises:
-        UploadError: If the body cannot be parsed.
+    Reads from *rfile* in chunks.  File parts are written to
+    ``SpooledTemporaryFile`` objects (in-memory up to ``_SPOOL_MAX``,
+    then spill to disk).  Non-file fields stay as ``bytes``.
     """
-    delimiter = b"--" + boundary
-    parts = body.split(delimiter)
 
-    # First part is empty (before first boundary), last is "--\r\n" (closing)
-    results: list[tuple[str, str, bytes]] = []
+    def __init__(self, rfile: io.BufferedIOBase, content_length: int, boundary: bytes) -> None:
+        self._rfile = rfile
+        self._remaining = content_length
+        self._buf = b""
+        self._boundary = b"--" + boundary
+        self._delimiter = b"\r\n" + self._boundary
 
-    for part in parts[1:]:
-        if part.startswith(b"--"):
-            break
+    # -- low-level buffer helpers ---------------------------------------------
 
-        # Split headers from body at the double CRLF
-        header_end = part.find(b"\r\n\r\n")
-        if header_end == -1:
-            continue
-
-        raw_headers = part[:header_end].decode("utf-8", errors="replace")
-        # Body is between headers and trailing CRLF before next boundary
-        data = part[header_end + 4 :]
-        if data.endswith(b"\r\n"):
-            data = data[:-2]
-
-        disposition = ""
-        for line in raw_headers.split("\r\n"):
-            lower = line.lower()
-            if lower.startswith("content-disposition:"):
-                disposition = line.split(":", 1)[1].strip()
+    def _fill(self, target: int = _CHUNK_SIZE) -> None:
+        """Ensure the buffer has at least *target* bytes (or the stream is exhausted)."""
+        while len(self._buf) < target and self._remaining > 0:
+            n = min(target - len(self._buf), self._remaining)
+            chunk = self._rfile.read(n)
+            if not chunk:
                 break
+            self._remaining -= len(chunk)
+            self._buf += chunk
 
-        if not disposition:
-            continue
+    def _find(self, marker: bytes) -> int:
+        """Fill and search for *marker*.  Returns index or ``-1``."""
+        while True:
+            idx = self._buf.find(marker)
+            if idx != -1:
+                return idx
+            if self._remaining <= 0:
+                return -1
+            self._fill()
 
-        params = _parse_content_disposition(disposition)
-        field_name = params.get("name", "")
-        filename = params.get("filename", "")
-        results.append((field_name, filename, data))
+    def _skip_past(self, marker: bytes) -> bool:
+        """Advance the buffer past *marker*.  Returns ``False`` if not found."""
+        idx = self._find(marker)
+        if idx == -1:
+            return False
+        self._buf = self._buf[idx + len(marker) :]
+        return True
 
-    return results
+    # -- part iteration -------------------------------------------------------
+
+    def parts(
+        self,
+    ) -> Generator[tuple[str, str, bytes | tempfile.SpooledTemporaryFile[bytes]],]:
+        """Yield ``(field_name, filename, data)`` for each part.
+
+        *data* is ``bytes`` for non-file fields and a sought-to-zero
+        ``SpooledTemporaryFile`` for file fields.
+        """
+        if not self._skip_past(self._boundary):
+            return
+
+        while True:
+            self._fill(2)
+            if not self._buf or self._buf.startswith(b"--"):
+                return
+            if self._buf.startswith(b"\r\n"):
+                self._buf = self._buf[2:]
+
+            hdr_end = self._find(b"\r\n\r\n")
+            if hdr_end == -1:
+                return
+
+            raw_headers = self._buf[:hdr_end].decode("utf-8", errors="replace")
+            self._buf = self._buf[hdr_end + 4 :]
+
+            disposition = ""
+            for line in raw_headers.split("\r\n"):
+                if line.lower().startswith("content-disposition:"):
+                    disposition = line.split(":", 1)[1].strip()
+                    break
+
+            if not disposition:
+                self._skip_past(self._delimiter)
+                continue
+
+            params = _parse_content_disposition(disposition)
+            field_name = params.get("name", "")
+            filename = params.get("filename", "")
+
+            if filename:
+                tmp = tempfile.SpooledTemporaryFile(max_size=_SPOOL_MAX)  # noqa: SIM115
+                self._read_body(tmp)
+                tmp.seek(0)
+                yield field_name, filename, tmp
+            else:
+                buf = io.BytesIO()
+                self._read_body(buf)
+                yield field_name, filename, buf.getvalue()
+
+    def _read_body(self, output: io.BytesIO | tempfile.SpooledTemporaryFile) -> None:
+        """Stream part body into *output* until the next boundary delimiter."""
+        dlen = len(self._delimiter)
+
+        while True:
+            self._fill(dlen + _CHUNK_SIZE)
+
+            idx = self._buf.find(self._delimiter)
+            if idx != -1:
+                output.write(self._buf[:idx])
+                self._buf = self._buf[idx + dlen :]
+                return
+
+            # Flush bytes that cannot be part of a partial delimiter match
+            safe = len(self._buf) - dlen + 1
+            if safe > 0:
+                output.write(self._buf[:safe])
+                self._buf = self._buf[safe:]
+
+            if self._remaining <= 0:
+                output.write(self._buf)
+                self._buf = b""
+                return
 
 
 # -- Filename sanitization ---------------------------------------------------
@@ -164,16 +238,19 @@ def _sanitize_relative_path(raw: str) -> str:
 
 
 def handle_upload(
-    body: bytes,
+    rfile: io.BufferedIOBase,
     content_type: str,
     content_length: int,
     target_dir: Path,
     base_dir: Path,
 ) -> list[str]:
-    """Parse a multipart upload, validate, and save file(s).
+    """Parse a multipart upload stream, validate, and save file(s).
+
+    Reads from *rfile* in chunks so peak memory stays flat regardless
+    of upload size.
 
     Args:
-        body: The raw request body bytes.
+        rfile: Readable stream positioned at the start of the request body.
         content_type: The Content-Type header value.
         content_length: The Content-Length header value.
         target_dir: The directory to save uploaded files to.
@@ -192,49 +269,48 @@ def handle_upload(
         )
 
     boundary = _extract_boundary(content_type)
-    parts = _parse_multipart(body, boundary)
-
-    # Pair each file with its preceding relativePath hidden field.
-    # Each relativePath field applies to the immediately following file part.
-    file_parts: list[tuple[str, str, bytes]] = []  # (rel_path, filename, data)
-    pending_rel_path = ""
-
-    for field_name, filename, data in parts:
-        if field_name == "relativePath" and not filename:
-            pending_rel_path = data.decode("utf-8", errors="replace")
-        elif filename:
-            file_parts.append((pending_rel_path, filename, data))
-            pending_rel_path = ""
-
-    if not file_parts:
-        raise UploadError("No file provided")
+    stream = _MultipartStream(rfile, content_length, boundary)
 
     saved: list[str] = []
+    pending_rel_path = ""
 
-    for rel_path, raw_filename, data in file_parts:
-        if rel_path and "/" in rel_path:
-            # Folder upload — preserve directory structure
-            safe_rel = _sanitize_relative_path(rel_path)
-            save_dir = target_dir / os.path.dirname(safe_rel)
-            safe_name = sanitize_filename(raw_filename)
-        else:
-            # Regular file upload
-            save_dir = target_dir
-            safe_name = sanitize_filename(raw_filename)
+    for field_name, filename, data in stream.parts():
+        if isinstance(data, bytes):
+            if field_name == "relativePath" and not filename:
+                pending_rel_path = data.decode("utf-8", errors="replace")
+            continue
 
-        # Ensure subdirectories exist (no-op for regular uploads)
-        save_dir.mkdir(parents=True, exist_ok=True)
-        save_path = save_dir / safe_name
+        if not filename:
+            data.close()
+            continue
 
-        # Path containment check — use realpath to catch symlink escapes
-        real_save = os.path.realpath(save_path)
-        real_base = os.path.realpath(base_dir)
-        if not real_save.startswith(real_base + os.sep):  # pragma: no cover — defense-in-depth
-            raise UploadError(f"Path traversal blocked for '{raw_filename}'")
+        try:
+            if pending_rel_path and "/" in pending_rel_path:
+                safe_rel = _sanitize_relative_path(pending_rel_path)
+                save_dir = target_dir / os.path.dirname(safe_rel)
+            else:
+                save_dir = target_dir
 
-        save_path.write_bytes(data)
-        logger.info("Saved upload: %s (%d bytes)", save_path, len(data))
-        saved.append(safe_name)
+            safe_name = sanitize_filename(filename)
+            pending_rel_path = ""
+
+            save_dir.mkdir(parents=True, exist_ok=True)
+            save_path = save_dir / safe_name
+
+            real_save = os.path.realpath(save_path)
+            real_base = os.path.realpath(base_dir)
+            if not real_save.startswith(real_base + os.sep):  # pragma: no cover
+                raise UploadError(f"Path traversal blocked for '{filename}'")
+
+            with save_path.open("wb") as dest:
+                shutil.copyfileobj(data, dest)
+            logger.info("Saved upload: %s", save_path)
+            saved.append(safe_name)
+        finally:
+            data.close()
+
+    if not saved:
+        raise UploadError("No file provided")
 
     return saved
 

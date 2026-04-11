@@ -1,5 +1,6 @@
 """Unit tests for upload module: parsing, sanitization, and file handling."""
 
+import io
 from pathlib import Path
 
 import pytest
@@ -8,8 +9,8 @@ from neev.upload import (
     MAX_UPLOAD_SIZE,
     UploadError,
     _extract_boundary,
+    _MultipartStream,
     _parse_content_disposition,
-    _parse_multipart,
     _sanitize_relative_path,
     handle_create_folder,
     handle_upload,
@@ -45,6 +46,19 @@ def _build_multipart(files: list[tuple[str, str, bytes]], boundary: str = "testb
     return b"".join(parts), f"multipart/form-data; boundary={boundary}"
 
 
+def _parse_stream(body: bytes, boundary: bytes) -> list[tuple[str, str, bytes]]:
+    """Helper: run the streaming parser and collect results as plain tuples."""
+    stream = _MultipartStream(io.BytesIO(body), len(body), boundary)
+    results = []
+    for name, fname, data in stream.parts():
+        if isinstance(data, bytes):
+            results.append((name, fname, data))
+        else:
+            results.append((name, fname, data.read()))
+            data.close()
+    return results
+
+
 # -- Multipart parsing -------------------------------------------------------
 
 
@@ -77,33 +91,33 @@ class TestParseContentDisposition:
 class TestParseMultipart:
     def test_single_file(self):
         body, ct = _build_multipart([("file", "test.txt", b"hello")])
-        parts = _parse_multipart(body, _extract_boundary(ct))
+        parts = _parse_stream(body, _extract_boundary(ct))
         assert len(parts) == 1
         assert parts[0] == ("file", "test.txt", b"hello")
 
     def test_multiple_files(self):
         body, ct = _build_multipart([("file", "a.txt", b"a"), ("file", "b.txt", b"b")])
-        assert len(_parse_multipart(body, _extract_boundary(ct))) == 2
+        assert len(_parse_stream(body, _extract_boundary(ct))) == 2
 
     def test_non_file_field(self):
         body, ct = _build_multipart([("field", "", b"value")])
-        parts = _parse_multipart(body, _extract_boundary(ct))
+        parts = _parse_stream(body, _extract_boundary(ct))
         assert parts[0] == ("field", "", b"value")
 
     def test_skips_part_without_headers(self):
-        assert _parse_multipart(b"--b\r\nno double crlf\r\n--b--\r\n", b"b") == []
+        assert _parse_stream(b"--b\r\nno double crlf\r\n--b--\r\n", b"b") == []
 
     def test_skips_part_without_disposition(self):
         raw = b"--b\r\nContent-Type: text/plain\r\n\r\ndata\r\n--b--\r\n"
-        assert _parse_multipart(raw, b"b") == []
+        assert _parse_stream(raw, b"b") == []
 
     def test_no_closing_boundary(self):
         raw = b'--b\r\nContent-Disposition: form-data; name="f"; filename="x"\r\n\r\ndata\r\n'
-        assert len(_parse_multipart(raw, b"b")) == 1
+        assert len(_parse_stream(raw, b"b")) == 1
 
-    def test_data_without_trailing_crlf(self):
+    def test_data_with_closing_boundary(self):
         hdr = b'--b\r\nContent-Disposition: form-data; name="f"; filename="x"\r\n\r\n'
-        parts = _parse_multipart(hdr + b"data--b--\r\n", b"b")
+        parts = _parse_stream(hdr + b"data\r\n--b--\r\n", b"b")
         assert len(parts) == 1
         assert parts[0][2] == b"data"
 
@@ -159,32 +173,32 @@ class TestSanitizeRelativePath:
 class TestHandleUpload:
     def test_saves_file(self, serve_dir):
         body, ct = _build_multipart([("file", "new.txt", b"content")])
-        saved = handle_upload(body, ct, len(body), serve_dir, serve_dir)
+        saved = handle_upload(io.BytesIO(body), ct, len(body), serve_dir, serve_dir)
         assert "new.txt" in saved
         assert (serve_dir / "new.txt").read_bytes() == b"content"
 
     def test_overwrites_existing(self, serve_dir):
         body, ct = _build_multipart([("file", "existing.txt", b"overwritten")])
-        handle_upload(body, ct, len(body), serve_dir, serve_dir)
+        handle_upload(io.BytesIO(body), ct, len(body), serve_dir, serve_dir)
         assert (serve_dir / "existing.txt").read_text() == "overwritten"
 
     def test_rejects_too_large(self, serve_dir):
         body, ct = _build_multipart([("file", "big.txt", b"x")])
         with pytest.raises(UploadError, match="too large"):
-            handle_upload(body, ct, MAX_UPLOAD_SIZE + 1, serve_dir, serve_dir)
+            handle_upload(io.BytesIO(body), ct, MAX_UPLOAD_SIZE + 1, serve_dir, serve_dir)
 
     def test_rejects_no_file(self, serve_dir):
         body, ct = _build_multipart([("field", "", b"value")])
         with pytest.raises(UploadError, match="No file"):
-            handle_upload(body, ct, len(body), serve_dir, serve_dir)
+            handle_upload(io.BytesIO(body), ct, len(body), serve_dir, serve_dir)
 
     def test_sanitizes_traversal_filename(self, serve_dir):
         body, ct = _build_multipart([("file", "../../etc/passwd", b"data")])
-        assert handle_upload(body, ct, len(body), serve_dir, serve_dir) == ["passwd"]
+        assert handle_upload(io.BytesIO(body), ct, len(body), serve_dir, serve_dir) == ["passwd"]
 
     def test_multiple_files(self, serve_dir):
         body, ct = _build_multipart([("file", "a.txt", b"aaa"), ("file", "b.txt", b"bbb")])
-        assert len(handle_upload(body, ct, len(body), serve_dir, serve_dir)) == 2
+        assert len(handle_upload(io.BytesIO(body), ct, len(body), serve_dir, serve_dir)) == 2
 
     def test_folder_upload_with_relative_paths(self, serve_dir):
         body, ct = _build_multipart(
@@ -193,7 +207,7 @@ class TestHandleUpload:
                 ("file", "file.txt", b"nested"),
             ]
         )
-        handle_upload(body, ct, len(body), serve_dir, serve_dir)
+        handle_upload(io.BytesIO(body), ct, len(body), serve_dir, serve_dir)
         assert (serve_dir / "myfolder" / "sub" / "file.txt").read_bytes() == b"nested"
 
 

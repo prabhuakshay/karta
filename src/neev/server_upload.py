@@ -51,9 +51,8 @@ def serve_upload(
         _send_error(handler, 400, "Invalid upload target")
         return
 
-    body = handler.rfile.read(content_length)
     try:
-        handle_upload(body, content_type, content_length, resolved, directory)
+        handle_upload(handler.rfile, content_type, content_length, resolved, directory)
     except UploadError as exc:
         _send_error(handler, 400, str(exc))
         return
