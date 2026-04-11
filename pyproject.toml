@@ -7,7 +7,22 @@ authors = [
     { name = "Akshay Prabhu", email = "akshay.prabhu.mulki@gmail.com" }
 ]
 requires-python = ">=3.13"
+license = { text = "MIT" }
+keywords = ["http", "file-server", "cli", "sharing"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/prabhuakshay/neev"
+Repository = "https://github.com/prabhuakshay/neev"
+Issues = "https://github.com/prabhuakshay/neev/issues"
+Changelog = "https://github.com/prabhuakshay/neev/releases"
 
 [project.scripts]
 neev = "neev:main"

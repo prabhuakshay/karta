@@ -43,7 +43,12 @@ def serve_selective_zip(handler: "NeevHandler", request_path: str) -> None:
         _send_text(handler, 403, b"ZIP downloads are disabled")
         return
 
-    content_length = int(handler.headers.get("Content-Length", 0))
+    try:
+        content_length = int(handler.headers.get("Content-Length", 0))
+    except ValueError:
+        _send_text(handler, 400, b"Invalid Content-Length")
+        return
+
     if content_length <= 0 or content_length > 65536:
         _send_text(handler, 400, b"Invalid request body")
         return

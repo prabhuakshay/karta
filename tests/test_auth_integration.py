@@ -1,6 +1,7 @@
 """Integration tests for the neev auth flow — login, logout, session cookies."""
 
 import base64
+import http.client
 import threading
 import urllib.error
 from functools import partial
@@ -252,6 +253,21 @@ class TestCurlAuth:
     def test_auth_required_for_favicon(self, auth_server):
         status, _, _ = _request(auth_server, "/favicon.ico")
         assert status == 303
+
+
+class TestLoginValidation:
+    def test_malformed_content_length_returns_400(self, auth_server):
+        host, port = auth_server.replace("http://", "").split(":")
+        conn = http.client.HTTPConnection(host, int(port))
+        conn.request(
+            "POST",
+            "/_neev/login",
+            headers={"Content-Length": "abc", "Content-Type": "application/x-www-form-urlencoded"},
+        )
+        resp = conn.getresponse()
+        assert resp.status == 400
+        assert b"Invalid Content-Length" in resp.read()
+        conn.close()
 
 
 class TestPostRouting:

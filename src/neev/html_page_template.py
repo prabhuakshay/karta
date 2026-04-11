@@ -192,7 +192,11 @@ PAGE_TEMPLATE = """\
     <p class="text-xs text-ink-300 text-center
       tracking-wide">
       served by
-      <span class="font-medium text-ink-400">neev</span>
+      <a href="https://github.com/prabhuakshay/neev"
+        class="font-medium text-ink-400 hover:text-ink-500
+        underline decoration-ink-200 hover:decoration-ink-400
+        transition-colors" target="_blank"
+        rel="noopener noreferrer">neev</a>
     </p>
   </footer>
 
