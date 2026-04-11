@@ -93,6 +93,18 @@ class TestZipSizeLimit:
         with pytest.raises(ZipSizeLimitError, match="MB limit"):
             create_zip_stream(tree, tree, show_hidden=False, max_size=1)
 
+    def test_size_check_fires_before_write(self, tmp_path):
+        """Regression: buffer must not grow past max_size before the error is raised.
+
+        The check must run before zf.write(), not after. A 200-byte file against
+        a 100-byte limit should raise without growing the buffer beyond 100 bytes.
+        """
+        big = tmp_path / "big.txt"
+        big.write_bytes(b"x" * 200)
+
+        with pytest.raises(ZipSizeLimitError):
+            create_zip_stream(tmp_path, tmp_path, show_hidden=False, max_size=100)
+
 
 # -- Subdirectory zipping ----------------------------------------------------
 

@@ -67,12 +67,15 @@ def create_zip_stream(
                     continue
 
                 arcname = str(full_path.relative_to(directory))
-                zf.write(full_path, arcname)
-
-                if buf.tell() > max_size:
+                # Check uncompressed file size against remaining budget before writing.
+                # This ensures the buffer never grows beyond max_size, even for a single
+                # large file. Using uncompressed size is conservative but correct — we
+                # want to cap memory usage, not compressed output size.
+                if buf.tell() + os.path.getsize(full_path) > max_size:
                     raise ZipSizeLimitError(
                         f"ZIP archive exceeds {max_size // (1024 * 1024)} MB limit"
                     )
+                zf.write(full_path, arcname)
 
     buf.seek(0)
     return buf
