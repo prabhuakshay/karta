@@ -169,6 +169,16 @@ class TestListDirectory:
         names = [e.name for e in entries]
         assert names == ["alpha.txt", "beta.txt", "Zebra.txt"]
 
+    def test_broken_symlink_skipped(self, tmp_path):
+        """Broken symlinks raise OSError on stat() — listing must skip them, not crash."""
+        (tmp_path / "real.txt").write_text("content")
+        broken = tmp_path / "broken_link.txt"
+        broken.symlink_to(tmp_path / "nonexistent_target.txt")
+        entries = list_directory(tmp_path, show_hidden=False)
+        names = [e.name for e in entries]
+        assert "real.txt" in names
+        assert "broken_link.txt" not in names
+
 
 # -- FileEntry ---------------------------------------------------------------
 

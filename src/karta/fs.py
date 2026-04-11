@@ -4,11 +4,15 @@ This module is the security boundary: every filesystem access goes through
 ``resolve_safe_path`` to ensure paths stay within the served directory.
 """
 
+import logging
 import mimetypes
 import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -85,7 +89,11 @@ def list_directory(path: Path, show_hidden: bool) -> list[FileEntry]:
     for item in path.iterdir():
         if not show_hidden and item.name.startswith("."):
             continue
-        stat = item.stat()
+        try:
+            stat = item.stat()
+        except OSError:
+            logger.warning("skipping %s: stat() failed", item)
+            continue
         entries.append(
             FileEntry(
                 name=item.name,
