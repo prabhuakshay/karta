@@ -210,11 +210,18 @@ MARKDOWN_JS = """\
         return d.innerHTML;
       }}
 
-      /* Retry rendering once CDN scripts finish loading */
+      /* Re-render once all resources settle: either apply CDN
+         libs that arrived late, or show the offline fallback */
       window.addEventListener("load", function() {{
-        if (rawText && typeof marked !== "undefined"
-            && mdEl.querySelector("pre:not(.mermaid)")) {{
+        if (rawText) renderMarkdown(rawText);
+      }});
+
+      /* Safety-net: if the spinner is still showing after 5s
+         (e.g. CDN scripts blocking window.load), force the
+         offline fallback so the page never hangs indefinitely */
+      setTimeout(function() {{
+        if (rawText && mdEl.querySelector(".animate-spin")) {{
           renderMarkdown(rawText);
         }}
-      }});
+      }}, 5000);
     }})();"""

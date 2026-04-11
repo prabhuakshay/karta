@@ -114,7 +114,10 @@ def render_text_preview(filename: str, raw_url_js: str, parent_url: str, downloa
         f"{_header(filename, parent_url, download_url)}"
         '    <link rel="stylesheet"'
         ' href="https://cdn.jsdelivr.net/gh/highlightjs/'
-        'cdn-release/build/styles/github.min.css">'
+        'cdn-release@11.11.1/build/styles/github.min.css"'
+        ' integrity="sha384-eFTL69TLRZTkNfYZOLM+G04821K1qZao'
+        '/4QLJbet1pP4tcF+fdXq/9CdqAbWRl/L"'
+        ' crossorigin="anonymous">'
         '    <div class="bg-surface-1 shadow-card rounded-xl overflow-hidden">'
         '      <pre id="code-content"'
         ' class="p-6 sm:p-10 text-sm text-ink-700 font-mono'
@@ -122,7 +125,10 @@ def render_text_preview(filename: str, raw_url_js: str, parent_url: str, downloa
         ' break-words"><span class="text-ink-400">Loading\u2026</span></pre>'
         "    </div>"
         '    <script defer src="https://cdn.jsdelivr.net/gh/highlightjs/'
-        'cdn-release/build/highlight.min.js"></script>'
+        'cdn-release@11.11.1/build/highlight.min.js"'
+        ' integrity="sha384-RH2xi4eIQ/gjtbs9fUXM68sLSi99C7ZWBRX1v'
+        'DrVv6GQXRibxXLbwO2NGZB74MbU"'
+        ' crossorigin="anonymous"></script>'
         "    <script>"
         f"    fetch({raw_url_js})"
         "      .then(function(r) { return r.text(); })"
@@ -130,7 +136,18 @@ def render_text_preview(filename: str, raw_url_js: str, parent_url: str, downloa
         "        var el = document.getElementById('code-content');"
         "        el.textContent = text;"
         "        if (window.hljs) hljs.highlightElement(el);"
+        "      })"
+        "      .catch(function() {"
+        "        document.getElementById('code-content').textContent ="
+        "          'Failed to load file content.';"
         "      });"
+        "    window.addEventListener('load', function() {"
+        "      var el = document.getElementById('code-content');"
+        "      if (window.hljs && el.textContent"
+        "          && !el.querySelector('.hljs')) {"
+        "        hljs.highlightElement(el);"
+        "      }"
+        "    });"
         "    </script>"
         f"{_PREVIEW_FOOTER}"
     )
