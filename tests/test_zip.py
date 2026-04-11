@@ -93,14 +93,27 @@ class TestZipSizeLimit:
         with pytest.raises(ZipSizeLimitError, match="MB limit"):
             create_zip_stream(tree, tree, show_hidden=False, max_size=1)
 
-    def test_size_check_fires_before_write(self, tmp_path):
-        """Regression: buffer must not grow past max_size before the error is raised.
+    def test_size_check_uses_compressed_size(self, tmp_path):
+        """The size check must use actual compressed buffer size, not uncompressed file size.
 
-        The check must run before zf.write(), not after. A 200-byte file against
-        a 100-byte limit should raise without growing the buffer beyond 100 bytes.
+        A highly-compressible file (1000 repeated bytes) compresses well below
+        its uncompressed size. The old check mixed compressed buffer position
+        with uncompressed file size, causing premature rejection.
         """
-        big = tmp_path / "big.txt"
-        big.write_bytes(b"x" * 200)
+        compressible = tmp_path / "compressible.txt"
+        compressible.write_bytes(b"a" * 1000)
+
+        # max_size is larger than compressed output but smaller than
+        # uncompressed — old check would reject, new check allows it
+        data = create_zip_stream(tmp_path, tmp_path, show_hidden=False, max_size=500)
+        zf = zipfile.ZipFile(data)
+        assert zf.read("compressible.txt") == b"a" * 1000
+
+    def test_raises_when_compressed_output_exceeds_limit(self, tmp_path):
+        """The error fires when the actual compressed buffer exceeds max_size."""
+        big = tmp_path / "big.bin"
+        # Random-ish bytes that don't compress well
+        big.write_bytes(bytes(range(256)) * 4)
 
         with pytest.raises(ZipSizeLimitError):
             create_zip_stream(tmp_path, tmp_path, show_hidden=False, max_size=100)
