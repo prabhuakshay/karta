@@ -23,6 +23,7 @@ document.addEventListener('alpine:init', function() {
       dragging: false,
       files: [],
       uploading: false,
+      pastedFiles: null,
 
       switchMode: function(m) {
         this.mode = m;
@@ -37,6 +38,31 @@ document.addEventListener('alpine:init', function() {
 
       handleFiles: function(ev) {
         if (ev.target.files.length) this.setFiles(ev.target.files);
+      },
+
+      handlePaste: function(ev) {
+        var items = ev.clipboardData && ev.clipboardData.items;
+        if (!items) return;
+        var dt = new DataTransfer();
+        for (var i = 0; i < items.length; i++) {
+          if (items[i].kind !== 'file') continue;
+          var f = items[i].getAsFile();
+          if (!f) continue;
+          if (!f.name || f.name === 'image.png') {
+            var ext = (f.type.split('/')[1] || 'png').replace('+xml', '');
+            var ts = new Date().toISOString().replace(/[:.]/g, '-')
+              .slice(0, 19);
+            var named = new File([f], 'paste-' + ts + '.' + ext,
+              { type: f.type });
+            dt.items.add(named);
+          } else {
+            dt.items.add(f);
+          }
+        }
+        if (dt.files.length) {
+          this.pastedFiles = dt;
+          this.setFiles(dt.files);
+        }
       },
 
       setFiles: function(list) {
@@ -57,6 +83,7 @@ document.addEventListener('alpine:init', function() {
 
       clearFiles: function() {
         this.files = [];
+        this.pastedFiles = null;
         var inputs = this.$refs.uploadForm.querySelectorAll(
           'input[type="file"]'
         );
@@ -77,6 +104,13 @@ document.addEventListener('alpine:init', function() {
 
       populateRelPaths: function() {
         this.clearRelPaths();
+        if (this.pastedFiles) {
+          var fileInput = this.$refs.uploadForm.querySelector(
+            'input[name="file"][multiple]'
+          );
+          if (fileInput) fileInput.files = this.pastedFiles.files;
+          return;
+        }
         var c = document.getElementById('relativePathFields');
         var inputs = this.$refs.uploadForm.querySelectorAll(
           'input[type="file"]'

@@ -79,3 +79,86 @@ def create_zip_stream(
 
     buf.seek(0)
     return buf
+
+
+def _add_file_to_zip(
+    zf: zipfile.ZipFile,
+    buf: io.BytesIO,
+    full_path: Path,
+    arcname: str,
+    base_dir: Path,
+    max_size: int,
+) -> None:
+    """Validate and add a single file to a ZIP archive.
+
+    Args:
+        zf: The open ZipFile to write into.
+        buf: The underlying BytesIO buffer (for size checks).
+        full_path: Absolute path to the file on disk.
+        arcname: Archive-internal path for this entry.
+        base_dir: The served root directory (security boundary).
+        max_size: Maximum allowed buffer size in bytes.
+
+    Raises:
+        ZipSizeLimitError: If adding this file would exceed ``max_size``.
+    """
+    safe = resolve_safe_path(base_dir, str(full_path.relative_to(base_dir)))
+    if safe is None:  # pragma: no cover
+        logger.warning("skipping path outside base dir: %s", full_path)
+        return
+
+    if buf.tell() + os.path.getsize(full_path) > max_size:
+        raise ZipSizeLimitError(f"ZIP archive exceeds {max_size // (1024 * 1024)} MB limit")
+    zf.write(full_path, arcname)
+
+
+def create_selective_zip_stream(
+    directory: Path,
+    items: list[str],
+    base_dir: Path,
+    show_hidden: bool,
+    max_size: int,
+) -> io.BytesIO:
+    """Create a ZIP archive containing only the selected items.
+
+    Each item name is resolved relative to ``directory``. Files are added
+    directly; directories are walked recursively.
+
+    Args:
+        directory: The parent directory containing the selected items.
+        items: List of filenames/dirnames within ``directory`` to include.
+        base_dir: The served root directory (security boundary).
+        show_hidden: Whether to include dotfiles and dotdirs.
+        max_size: Maximum allowed size of the ZIP buffer in bytes.
+
+    Returns:
+        A ``BytesIO`` stream containing the ZIP archive, sought to 0.
+
+    Raises:
+        ZipSizeLimitError: If the archive exceeds ``max_size``.
+    """
+    buf = io.BytesIO()
+
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for item_name in items:
+            item_path = directory / item_name
+            safe = resolve_safe_path(base_dir, str(item_path.relative_to(base_dir)))
+            if safe is None or not safe.exists():
+                logger.warning("skipping invalid item: %s", item_name)
+                continue
+
+            if safe.is_file():
+                _add_file_to_zip(zf, buf, safe, item_name, base_dir, max_size)
+            elif safe.is_dir():
+                for dirpath, dirnames, filenames in os.walk(safe):
+                    if not show_hidden:
+                        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+                    for filename in filenames:
+                        if not show_hidden and filename.startswith("."):
+                            continue
+                        full_path = Path(dirpath) / filename
+                        arcname = str(full_path.relative_to(directory))
+                        _add_file_to_zip(zf, buf, full_path, arcname, base_dir, max_size)
+
+    buf.seek(0)
+    return buf

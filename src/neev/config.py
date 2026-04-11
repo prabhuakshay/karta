@@ -33,3 +33,4 @@ class Config:
     enable_zip_download: bool
     max_zip_size: int
     enable_upload: bool
+    banner: str | None = None

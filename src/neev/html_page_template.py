@@ -47,7 +47,19 @@ PAGE_TEMPLATE = """\
 
   <main class="max-w-5xl mx-auto w-full px-4 sm:px-6
     lg:px-8 py-5 flex-1"
-    x-data="{{ filter: '', downloadMode: localStorage.getItem('neev-download-mode') === 'true' }}"
+    :class="selectMode && selected.length > 0 ? 'pb-20' : ''"
+    x-data="{{
+      filter: '',
+      downloadMode: localStorage.getItem('neev-download-mode') === 'true',
+      selectMode: false,
+      selected: [],
+      toggleItem(name) {{
+        const idx = this.selected.indexOf(name);
+        if (idx === -1) this.selected.push(name);
+        else this.selected.splice(idx, 1);
+      }},
+      isSelected(name) {{ return this.selected.indexOf(name) !== -1; }}
+    }}"
     x-effect="
       localStorage.setItem('neev-download-mode', downloadMode);
       $el.querySelectorAll('.file-link').forEach(a => {{
@@ -74,6 +86,8 @@ PAGE_TEMPLATE = """\
             ? '' : 'none';
       }});
     ">
+
+    {banner_html}
 
     <div class="flex items-center justify-between gap-3
       mb-4">
@@ -169,6 +183,8 @@ PAGE_TEMPLATE = """\
     {empty_state}
 
     {upload_html}
+
+    {select_bar_html}
   </main>
 
   <footer class="max-w-5xl mx-auto w-full px-4 sm:px-6
@@ -179,5 +195,40 @@ PAGE_TEMPLATE = """\
       <span class="font-medium text-ink-400">neev</span>
     </p>
   </footer>
+
+  <script>
+  function copyLink(ev, href) {{
+    const btn = ev.currentTarget;
+    const url = location.origin + href;
+    navigator.clipboard.writeText(url).then(() => {{
+      const copyIcon = btn.querySelector('.icon-copy');
+      const checkIcon = btn.querySelector('.icon-check');
+      if (copyIcon) copyIcon.style.display = 'none';
+      if (checkIcon) checkIcon.style.display = '';
+      btn.classList.add('text-sage-500');
+      btn.style.opacity = '1';
+      setTimeout(() => {{
+        if (copyIcon) copyIcon.style.display = '';
+        if (checkIcon) checkIcon.style.display = 'none';
+        btn.classList.remove('text-sage-500');
+        btn.style.opacity = '';
+      }}, 1500);
+    }});
+  }}
+  function submitZip(action, items) {{
+    const f = document.createElement('form');
+    f.method = 'POST';
+    f.action = action;
+    items.forEach(function(n) {{
+      const i = document.createElement('input');
+      i.type = 'hidden';
+      i.name = 'items';
+      i.value = n;
+      f.appendChild(i);
+    }});
+    document.body.appendChild(f);
+    f.submit();
+  }}
+  </script>
 </body>
 </html>"""

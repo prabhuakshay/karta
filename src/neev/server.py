@@ -1,6 +1,5 @@
 """HTTP server and request handler for neev."""
 
-import html as html_mod
 import re
 import shutil
 import sys
@@ -25,11 +24,12 @@ from neev.fs import (
     resolve_safe_path,
 )
 from neev.html import render_directory_listing
-from neev.html_markdown import render_markdown_preview
 from neev.log import log_styled, status_color
 from neev.server_assets import serve_favicon, serve_static
 from neev.server_auth import handle_login, handle_logout, serve_login_page
+from neev.server_preview import serve_generic_preview, serve_markdown_preview
 from neev.server_upload import serve_mkdir, serve_upload
+from neev.server_zip import serve_selective_zip
 from neev.zip import ZipSizeLimitError, create_zip_stream
 
 
@@ -161,8 +161,14 @@ class NeevHandler(BaseHTTPRequestHandler):
             return
 
         if parsed.query == "preview" and is_markdown_file(resolved):
-            self._serve_markdown_preview(resolved, request_path)
+            serve_markdown_preview(self, resolved, request_path)
             return
+
+        if parsed.query == "preview":
+            mime = get_mime_type(resolved)
+            if is_previewable_type(mime):
+                serve_generic_preview(self, resolved, request_path, mime)
+                return
 
         self._serve_file(resolved, force_download=parsed.query == "download")
 
@@ -178,6 +184,10 @@ class NeevHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         request_path = unquote(parsed.path)
         query = parse_qs(parsed.query)
+
+        if parsed.query == "zip":
+            serve_selective_zip(self, request_path)
+            return
 
         if "mkdir" in query:
             self._handle_mkdir(request_path, query)
@@ -239,22 +249,6 @@ class NeevHandler(BaseHTTPRequestHandler):
         with path.open("rb") as f:
             shutil.copyfileobj(f, self.wfile, length=65536)
 
-    def _serve_markdown_preview(self, path: Path, request_path: str) -> None:
-        """Serve an HTML page that renders a markdown file client-side."""
-        filename = html_mod.escape(path.name)
-        raw_url = html_mod.escape(request_path.rstrip("/") + "?download")
-        parent_url = html_mod.escape(
-            request_path.rsplit("/", maxsplit=1)[0] + "/" if "/" in request_path else "/"
-        )
-        page = render_markdown_preview(filename, raw_url, parent_url)
-        body = page.encode()
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self._cache_header()
-        self.end_headers()
-        self.wfile.write(body)
-
     def _serve_directory(self, request_path: str, resolved: Path) -> None:
         """Serve an HTML directory listing."""
         entries = list_directory(resolved, self.config.show_hidden)
@@ -266,6 +260,7 @@ class NeevHandler(BaseHTTPRequestHandler):
             auth_enabled=self._auth_enabled(),
             enable_zip_download=self.config.enable_zip_download,
             enable_upload=self.config.enable_upload,
+            banner=self.config.banner,
         )
         body = page.encode()
         self.send_response(200)

@@ -1,0 +1,72 @@
+"""Read and merge neev.toml configuration.
+
+Loads ``neev.toml`` from the served directory and merges its values
+with CLI arguments, where CLI flags take precedence.
+"""
+
+import argparse
+import logging
+import tomllib
+from pathlib import Path
+
+
+logger = logging.getLogger(__name__)
+
+TOML_FILENAME = "neev.toml"
+
+# Maps toml key names to argparse dest names (only where they differ).
+_KEY_MAP = {
+    "show-hidden": "show_hidden",
+    "enable-zip-download": "enable_zip_download",
+    "max-zip-size": "max_zip_size",
+    "enable-upload": "enable_upload",
+    "read-only": "read_only",
+}
+
+
+def load_toml(directory: Path) -> dict:
+    """Load neev.toml from the given directory.
+
+    Args:
+        directory: The directory to search for ``neev.toml``.
+
+    Returns:
+        A dictionary of config values, or empty dict if no file found.
+    """
+    toml_path = directory / TOML_FILENAME
+    if not toml_path.is_file():
+        return {}
+    try:
+        with toml_path.open("rb") as f:
+            data = tomllib.load(f)
+    except (tomllib.TOMLDecodeError, OSError) as exc:
+        logger.warning("failed to read %s: %s", toml_path, exc)
+        return {}
+    logger.info("loaded config from %s", toml_path)
+    return data
+
+
+def merge_toml_into_args(
+    args: argparse.Namespace, toml_data: dict, parser: argparse.ArgumentParser
+) -> None:
+    """Apply toml values to argparse namespace where CLI didn't override.
+
+    CLI arguments take precedence. A toml value is only applied if the
+    CLI argument still has its default value.
+
+    Args:
+        args: The parsed CLI arguments (modified in place).
+        toml_data: The dictionary loaded from ``neev.toml``.
+        parser: The argument parser (used to look up default values).
+    """
+    defaults = parser.parse_args([])
+
+    for toml_key, value in toml_data.items():
+        attr = _KEY_MAP.get(toml_key) or toml_key
+        if not hasattr(defaults, attr):
+            logger.warning("unknown config key in neev.toml: %s", toml_key)
+            continue
+        current = getattr(args, attr)
+        default = getattr(defaults, attr)
+        if current == default:
+            setattr(args, attr, value)

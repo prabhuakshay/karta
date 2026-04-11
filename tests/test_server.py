@@ -258,6 +258,68 @@ class TestFavicon:
 # -- run_server --------------------------------------------------------------
 
 
+class TestFilePreview:
+    def test_image_preview(self, server):
+        status, headers, body = _get(server, "/image.png?preview")
+        assert status == 200
+        assert headers["Content-Type"] == "text/html; charset=utf-8"
+        assert b"<img" in body
+        assert b"image.png" in body
+
+    def test_text_preview(self, server):
+        status, headers, body = _get(server, "/hello.txt?preview")
+        assert status == 200
+        assert headers["Content-Type"] == "text/html; charset=utf-8"
+        assert b"code-content" in body
+        assert b"hello.txt" in body
+
+    def test_json_preview(self, server):
+        status, _, body = _get(server, "/data.json?preview")
+        assert status == 200
+        assert b"code-content" in body
+
+    def test_html_preview(self, server):
+        status, _, body = _get(server, "/page.html?preview")
+        assert status == 200
+        assert b"page.html" in body
+
+    def test_pdf_preview(self, server, serve_dir):
+        (serve_dir / "doc.pdf").write_bytes(b"%PDF-1.4 fake")
+        status, _, body = _get(server, "/doc.pdf?preview")
+        assert status == 200
+        assert b"<embed" in body
+
+    def test_video_preview(self, server, serve_dir):
+        (serve_dir / "clip.mp4").write_bytes(b"\x00\x00\x00\x18ftypmp42")
+        status, _, body = _get(server, "/clip.mp4?preview")
+        assert status == 200
+        assert b"<video" in body
+
+    def test_audio_preview(self, server, serve_dir):
+        (serve_dir / "song.mp3").write_bytes(b"ID3fake")
+        status, _, body = _get(server, "/song.mp3?preview")
+        assert status == 200
+        assert b"<audio" in body
+
+    def test_preview_has_download_link(self, server):
+        _, _, body = _get(server, "/image.png?preview")
+        assert b"?download" in body
+
+    def test_preview_has_back_link(self, server):
+        _, _, body = _get(server, "/image.png?preview")
+        assert b"Back to folder" in body
+
+    def test_nonpreviewable_falls_through(self, server, serve_dir):
+        (serve_dir / "data.bin").write_bytes(b"\x00\x01\x02")
+        status, headers, _ = _get(server, "/data.bin?preview")
+        # application/octet-stream is not previewable, serves as download
+        assert status == 200
+        assert "octet-stream" in headers["Content-Type"]
+
+
+# -- run_server --------------------------------------------------------------
+
+
 class TestRunServer:
     def test_keyboard_interrupt_shuts_down(self, config):
         with patch.object(HTTPServer, "serve_forever", side_effect=KeyboardInterrupt):
