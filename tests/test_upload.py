@@ -8,10 +8,10 @@ from urllib.request import Request, urlopen
 
 import pytest
 
-from karta.auth import SessionStore
-from karta.config import Config
-from karta.server import KartaHandler
-from karta.upload import MAX_UPLOAD_SIZE
+from neev.auth import SessionStore
+from neev.config import Config
+from neev.server import NeevHandler
+from neev.upload import MAX_UPLOAD_SIZE
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -42,7 +42,7 @@ def _make_config(serve_dir, enable_upload):
 
 def _start_server(config):
     sessions = SessionStore()
-    handler = partial(KartaHandler, config, sessions)
+    handler = partial(NeevHandler, config, sessions)
     httpd = HTTPServer(("127.0.0.1", 0), handler)
     port = httpd.server_address[1]
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)

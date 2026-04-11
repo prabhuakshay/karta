@@ -1,8 +1,8 @@
-"""Tests for karta.log — ANSI styling and status coloring."""
+"""Tests for neev.log — ANSI styling and status coloring."""
 
 from unittest.mock import patch
 
-from karta.log import log_styled, status_color
+from neev.log import log_styled, status_color
 
 
 # -- ANSI styling ------------------------------------------------------------

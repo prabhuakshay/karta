@@ -1,4 +1,4 @@
-"""On-the-fly ZIP archive generation for karta directories.
+"""On-the-fly ZIP archive generation for neev directories.
 
 Builds a ZIP in memory using ``zipfile`` + ``io.BytesIO``. Each file is
 validated through ``fs.resolve_safe_path`` as defense-in-depth against
@@ -11,7 +11,7 @@ import os
 import zipfile
 from pathlib import Path
 
-from karta.fs import resolve_safe_path
+from neev.fs import resolve_safe_path
 
 
 logger = logging.getLogger(__name__)

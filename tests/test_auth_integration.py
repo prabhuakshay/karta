@@ -1,4 +1,4 @@
-"""Integration tests for the karta auth flow — login, logout, session cookies."""
+"""Integration tests for the neev auth flow — login, logout, session cookies."""
 
 import base64
 import threading
@@ -10,9 +10,9 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 import pytest
 
-from karta.auth import COOKIE_NAME, SessionStore
-from karta.config import Config
-from karta.server import KartaHandler
+from neev.auth import COOKIE_NAME, SessionStore
+from neev.config import Config
+from neev.server import NeevHandler
 
 
 # -- Fixtures ----------------------------------------------------------------
@@ -45,7 +45,7 @@ def auth_config(auth_serve_dir):
 def auth_server(auth_config):
     """Start a server with auth enabled, yield base URL."""
     sessions = SessionStore()
-    handler = partial(KartaHandler, auth_config, sessions)
+    handler = partial(NeevHandler, auth_config, sessions)
     httpd = HTTPServer(("127.0.0.1", 0), handler)
     port = httpd.server_address[1]
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
@@ -106,16 +106,16 @@ class TestAuthRedirect:
     def test_unauthenticated_redirects_to_login(self, auth_server):
         status, headers, _ = _request(auth_server, "/")
         assert status == 303
-        assert headers["Location"] == "/_karta/login"
+        assert headers["Location"] == "/_neev/login"
 
     def test_login_page_accessible_without_auth(self, auth_server):
-        status, headers, body = _request(auth_server, "/_karta/login")
+        status, headers, body = _request(auth_server, "/_neev/login")
         assert status == 200
         assert b"Sign in" in body
         assert headers["Content-Type"] == "text/html; charset=utf-8"
 
     def test_login_page_has_no_cache(self, auth_server):
-        _, headers, _ = _request(auth_server, "/_karta/login")
+        _, headers, _ = _request(auth_server, "/_neev/login")
         assert headers["Cache-Control"] == "no-store"
 
 
@@ -124,7 +124,7 @@ class TestLoginFlow:
         body = urlencode({"username": "alice", "password": "secret"}).encode()
         status, headers, _ = _request(
             auth_server,
-            "/_karta/login",
+            "/_neev/login",
             method="POST",
             body=body,
             content_type="application/x-www-form-urlencoded",
@@ -139,7 +139,7 @@ class TestLoginFlow:
         body = urlencode({"username": "alice", "password": "wrong"}).encode()
         status, _, resp_body = _request(
             auth_server,
-            "/_karta/login",
+            "/_neev/login",
             method="POST",
             body=body,
             content_type="application/x-www-form-urlencoded",
@@ -150,7 +150,7 @@ class TestLoginFlow:
     def test_oversized_login_body_returns_413(self, auth_server):
         status, _, _ = _request(
             auth_server,
-            "/_karta/login",
+            "/_neev/login",
             method="POST",
             body=b"x" * 8193,
             content_type="application/x-www-form-urlencoded",
@@ -161,7 +161,7 @@ class TestLoginFlow:
         body = urlencode({"username": "alice", "password": "secret"}).encode()
         _, headers, _ = _request(
             auth_server,
-            "/_karta/login",
+            "/_neev/login",
             method="POST",
             body=body,
             content_type="application/x-www-form-urlencoded",
@@ -175,7 +175,7 @@ class TestLoginFlow:
         body = urlencode({"username": "alice", "password": "secret"}).encode()
         _, headers, _ = _request(
             auth_server,
-            "/_karta/login",
+            "/_neev/login",
             method="POST",
             body=body,
             content_type="application/x-www-form-urlencoded",
@@ -184,7 +184,7 @@ class TestLoginFlow:
         status, _, resp_body = _request(auth_server, "/", cookie=cookie)
         assert status == 200
         assert b"Sign out" in resp_body
-        assert b"/_karta/logout" in resp_body
+        assert b"/_neev/logout" in resp_body
 
 
 class TestLogout:
@@ -192,38 +192,38 @@ class TestLogout:
         body = urlencode({"username": "alice", "password": "secret"}).encode()
         _, headers, _ = _request(
             auth_server,
-            "/_karta/login",
+            "/_neev/login",
             method="POST",
             body=body,
             content_type="application/x-www-form-urlencoded",
         )
         cookie = headers["Set-Cookie"].split(";")[0]
 
-        status, headers, _ = _request(auth_server, "/_karta/logout", cookie=cookie)
+        status, headers, _ = _request(auth_server, "/_neev/logout", cookie=cookie)
         assert status == 303
-        assert headers["Location"] == "/_karta/login"
+        assert headers["Location"] == "/_neev/login"
         assert "Max-Age=0" in headers["Set-Cookie"]
 
     def test_session_invalid_after_logout(self, auth_server):
         body = urlencode({"username": "alice", "password": "secret"}).encode()
         _, headers, _ = _request(
             auth_server,
-            "/_karta/login",
+            "/_neev/login",
             method="POST",
             body=body,
             content_type="application/x-www-form-urlencoded",
         )
         cookie = headers["Set-Cookie"].split(";")[0]
 
-        _request(auth_server, "/_karta/logout", cookie=cookie)
+        _request(auth_server, "/_neev/logout", cookie=cookie)
 
         status, _, _ = _request(auth_server, "/secret.txt", cookie=cookie)
         assert status == 303
 
     def test_logout_without_cookie(self, auth_server):
-        status, headers, _ = _request(auth_server, "/_karta/logout")
+        status, headers, _ = _request(auth_server, "/_neev/logout")
         assert status == 303
-        assert headers["Location"] == "/_karta/login"
+        assert headers["Location"] == "/_neev/login"
 
 
 class TestCurlAuth:
@@ -243,10 +243,10 @@ class TestCurlAuth:
             auth=("alice", "wrong"),
         )
         assert status == 401
-        assert headers["WWW-Authenticate"] == 'Basic realm="karta"'
+        assert headers["WWW-Authenticate"] == 'Basic realm="neev"'
 
     def test_auth_required_for_static(self, auth_server):
-        status, _, _ = _request(auth_server, "/_karta/static/karta.css")
+        status, _, _ = _request(auth_server, "/_neev/static/neev.css")
         assert status == 303
 
     def test_auth_required_for_favicon(self, auth_server):

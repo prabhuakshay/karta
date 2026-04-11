@@ -1,5 +1,5 @@
 [project]
-name = "karta"
+name = "neev"
 version = "0.1.0"
 description = "Zero-dependency Python CLI for sharing local directories over HTTP with authentication, file browsing, and ZIP downloads"
 readme = "README.md"
@@ -10,7 +10,7 @@ requires-python = ">=3.13"
 dependencies = []
 
 [project.scripts]
-karta = "karta:main"
+neev = "neev:main"
 
 [build-system]
 requires = ["uv_build>=0.10.12,<0.11.0"]
@@ -91,16 +91,16 @@ ignore = [
 ]
 "**/conftest.py" = ["D", "ANN", "ARG"]
 # CLI entry points use print() as primary output
-"src/karta/__init__.py" = ["T20"]
-"src/karta/cli.py" = ["T20"]
-"src/karta/__main__.py" = ["T20"]
-"src/karta/server.py" = ["T20", "ARG002"]
+"src/neev/__init__.py" = ["T20"]
+"src/neev/cli.py" = ["T20"]
+"src/neev/__main__.py" = ["T20"]
+"src/neev/server.py" = ["T20", "ARG002"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
 [tool.ruff.lint.isort]
-known-first-party = ["karta"]
+known-first-party = ["neev"]
 force-single-line = false
 lines-after-imports = 2
 
@@ -128,13 +128,13 @@ testpaths = ["tests"]
 addopts = [
     "--strict-markers",
     "--strict-config",
-    "--cov=karta",
+    "--cov=neev",
     "--cov-report=term-missing",
     "--cov-fail-under=100",
 ]
 
 [tool.coverage.run]
-source = ["src/karta"]
+source = ["src/neev"]
 branch = true
 
 [tool.coverage.report]

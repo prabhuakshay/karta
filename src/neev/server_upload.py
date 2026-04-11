@@ -1,4 +1,4 @@
-"""Upload and folder-creation request handling for karta.
+"""Upload and folder-creation request handling for neev.
 
 Module-level helpers that accept the active request handler, following the
 same pattern as ``server_assets``. Extracted from ``server.py`` to keep the
@@ -8,8 +8,8 @@ main handler under the line limit.
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
-from karta.fs import resolve_safe_path
-from karta.upload import MAX_UPLOAD_SIZE, UploadError, handle_create_folder, handle_upload
+from neev.fs import resolve_safe_path
+from neev.upload import MAX_UPLOAD_SIZE, UploadError, handle_create_folder, handle_upload
 
 
 def serve_upload(

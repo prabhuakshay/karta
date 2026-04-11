@@ -1,4 +1,4 @@
-"""Authentication and session management for karta."""
+"""Authentication and session management for neev."""
 
 import base64
 import hmac
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 # Sessions older than this are considered expired and will be pruned.
 TOKEN_TTL = 86400  # 24 hours in seconds
 
-COOKIE_NAME = "karta_session"
+COOKIE_NAME = "neev_session"
 
 
 # -- Credential validation ---------------------------------------------------

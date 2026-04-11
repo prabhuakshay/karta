@@ -1,4 +1,4 @@
-# karta
+# neev
 
 A zero-dependency Python CLI that serves local directories over HTTP with authentication, file browsing, ZIP folder downloads, and optional uploads. Think `python -m http.server` with auth, better UI, and practical file-sharing features. Built entirely on the Python standard library.
 
@@ -9,12 +9,12 @@ Target users are developers sharing build artifacts, teams on a local network, a
 - **Project type**: CLI (`--app --package` with `src/` layout and `[project.scripts]` entry point)
 - **Zero dependencies**: stdlib only — `argparse` for CLI, `http.server` for serving, `zipfile` for folder downloads, `html` for escaping, `base64` for auth
 - **Why stdlib**: the tool should be as lightweight and portable as possible. No virtualenv needed to run it, no supply chain risk
-- **Auth**: HTTP Basic Auth. Credentials via `--auth user:pass` CLI flag or `KARTA_AUTH` env var. Constant-time comparison with `hmac.compare_digest`
+- **Auth**: HTTP Basic Auth. Credentials via `--auth user:pass` CLI flag or `NEEV_AUTH` env var. Constant-time comparison with `hmac.compare_digest`
 - **Secure defaults**: localhost-only binding, no uploads, no hidden files, no ZIP downloads unless explicitly opted in
 
 ## Domain Concepts
 
-- **Served directory**: the root directory karta exposes over HTTP. All paths are resolved relative to this and must not escape it (path traversal protection)
+- **Served directory**: the root directory neev exposes over HTTP. All paths are resolved relative to this and must not escape it (path traversal protection)
 - **Read-only mode**: disables all write operations (uploads) regardless of other flags
 - **Hidden files**: dotfiles/dotdirs — hidden by default, shown only with `--show-hidden`
 - **ZIP download**: on-the-fly ZIP streaming of a directory's contents, opt-in via `--enable-zip-download`

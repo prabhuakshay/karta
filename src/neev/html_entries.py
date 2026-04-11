@@ -9,8 +9,8 @@ import html
 from pathlib import PurePosixPath
 from urllib.parse import quote
 
-from karta.fs import FileEntry
-from karta.html_icons import icon_for_entry
+from neev.fs import FileEntry
+from neev.html_icons import icon_for_entry
 
 
 # -- Formatting helpers -------------------------------------------------------

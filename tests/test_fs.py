@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from karta.fs import FileEntry, get_mime_type, list_directory, resolve_safe_path
+from neev.fs import FileEntry, get_mime_type, list_directory, resolve_safe_path
 
 
 # -- resolve_safe_path -------------------------------------------------------

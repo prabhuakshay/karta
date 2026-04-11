@@ -1,4 +1,4 @@
-"""HTML page template for karta directory listings."""
+"""HTML page template for neev directory listings."""
 
 PAGE_TEMPLATE = """\
 <!DOCTYPE html>
@@ -6,10 +6,10 @@ PAGE_TEMPLATE = """\
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{dir_name} &mdash; karta</title>
+  <title>{dir_name} &mdash; neev</title>
   <link rel="icon" href="/favicon.ico" type="image/svg+xml">
-  <link rel="stylesheet" href="/_karta/static/karta.css">
-  <script defer src="/_karta/static/alpine.min.js"></script>
+  <link rel="stylesheet" href="/_neev/static/neev.css">
+  <script defer src="/_neev/static/alpine.min.js"></script>
 </head>
 <body class="bg-surface-0 text-ink-700 font-sans min-h-screen
   flex flex-col">
@@ -20,7 +20,7 @@ PAGE_TEMPLATE = """\
       h-14 flex items-center justify-between">
       <div class="flex items-center gap-3 min-w-0">
         <a href="/" class="flex items-center gap-2 shrink-0
-          group" title="karta root">
+          group" title="neev root">
           <div class="w-7 h-7 rounded-lg bg-gradient-to-br
             from-sage-400 to-sage-600 flex items-center
             justify-center shadow-card
@@ -128,7 +128,7 @@ PAGE_TEMPLATE = """\
     <p class="text-xs text-ink-300 text-center
       tracking-wide">
       served by
-      <span class="font-medium text-ink-400">karta</span>
+      <span class="font-medium text-ink-400">neev</span>
     </p>
   </footer>
 </body>

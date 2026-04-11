@@ -1,12 +1,12 @@
-"""CLI argument parsing and entry point for karta."""
+"""CLI argument parsing and entry point for neev."""
 
 import argparse
 import os
 import sys
 from pathlib import Path
 
-from karta.config import Config
-from karta.server import run_server
+from neev.config import Config
+from neev.server import run_server
 
 
 # -- ANSI styling helpers --------------------------------------------------
@@ -88,7 +88,7 @@ def _parse_auth(auth_string: str) -> tuple[str, str]:
 def _resolve_auth(args: argparse.Namespace) -> tuple[str | None, str | None]:
     """Resolve auth credentials from CLI flag or environment variable.
 
-    ``--auth`` takes precedence over the ``KARTA_AUTH`` environment variable.
+    ``--auth`` takes precedence over the ``NEEV_AUTH`` environment variable.
 
     Args:
         args: Parsed CLI arguments.
@@ -96,7 +96,7 @@ def _resolve_auth(args: argparse.Namespace) -> tuple[str | None, str | None]:
     Returns:
         A ``(username, password)`` tuple, or ``(None, None)`` if no auth is configured.
     """
-    auth_string = args.auth or os.environ.get("KARTA_AUTH")
+    auth_string = args.auth or os.environ.get("NEEV_AUTH")
     if not auth_string:
         return None, None
     return _parse_auth(auth_string)
@@ -148,13 +148,13 @@ def _validate_port(value: str) -> int:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    """Build the argparse parser with all karta CLI flags.
+    """Build the argparse parser with all neev CLI flags.
 
     Returns:
         A configured ``ArgumentParser``.
     """
     parser = argparse.ArgumentParser(
-        prog="karta",
+        prog="neev",
         description="Serve a local directory over HTTP with auth, file browsing, and downloads.",
     )
     parser.add_argument(
@@ -179,7 +179,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--auth",
         default=None,
-        help="credentials as 'user:pass' (or set KARTA_AUTH env var)",
+        help="credentials as 'user:pass' (or set NEEV_AUTH env var)",
     )
     parser.add_argument(
         "--show-hidden",
@@ -271,7 +271,7 @@ def build_config(args: argparse.Namespace) -> Config:
 
 
 def main() -> None:
-    """Entry point for the karta CLI."""
+    """Entry point for the neev CLI."""
     parser = _build_parser()
     args = parser.parse_args()
     config = build_config(args)

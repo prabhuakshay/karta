@@ -1,4 +1,4 @@
-"""Auth page request handling for karta.
+"""Auth page request handling for neev.
 
 Module-level helpers that accept the active request handler, following the
 same pattern as ``server_upload`` and ``server_assets``. Extracted from
@@ -8,9 +8,9 @@ same pattern as ``server_upload`` and ``server_assets``. Extracted from
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import parse_qs
 
-from karta.auth import COOKIE_NAME, SessionStore, check_credentials, parse_cookie
-from karta.config import Config
-from karta.html_login import render_login_page
+from neev.auth import COOKIE_NAME, SessionStore, check_credentials, parse_cookie
+from neev.config import Config
+from neev.html_login import render_login_page
 
 
 def serve_login_page(handler: BaseHTTPRequestHandler, error: str | None = None) -> None:
@@ -78,7 +78,7 @@ def handle_logout(handler: BaseHTTPRequestHandler, sessions: SessionStore) -> No
         sessions.invalidate(token)
 
     handler.send_response(303)
-    handler.send_header("Location", "/_karta/login")
+    handler.send_header("Location", "/_neev/login")
     handler.send_header(
         "Set-Cookie",
         f"{COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0",

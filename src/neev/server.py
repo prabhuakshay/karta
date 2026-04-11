@@ -1,4 +1,4 @@
-"""HTTP server and request handler for karta."""
+"""HTTP server and request handler for neev."""
 
 import re
 import shutil
@@ -9,26 +9,26 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
-from karta.auth import (
+from neev.auth import (
     COOKIE_NAME,
     SessionStore,
     check_basic_auth,
     parse_cookie,
 )
-from karta.config import Config
-from karta.fs import get_mime_type, list_directory, resolve_safe_path
-from karta.html import render_directory_listing
-from karta.log import log_styled, status_color
-from karta.server_assets import serve_favicon, serve_static
-from karta.server_auth import handle_login, handle_logout, serve_login_page
-from karta.server_upload import serve_mkdir, serve_upload
-from karta.zip import ZipSizeLimitError, create_zip_stream
+from neev.config import Config
+from neev.fs import get_mime_type, list_directory, resolve_safe_path
+from neev.html import render_directory_listing
+from neev.log import log_styled, status_color
+from neev.server_assets import serve_favicon, serve_static
+from neev.server_auth import handle_login, handle_logout, serve_login_page
+from neev.server_upload import serve_mkdir, serve_upload
+from neev.zip import ZipSizeLimitError, create_zip_stream
 
 
 # -- Request handler -------------------------------------------------------
 
 
-class KartaHandler(BaseHTTPRequestHandler):
+class NeevHandler(BaseHTTPRequestHandler):
     """HTTP request handler that serves files from a configured directory.
 
     Config and session store are injected via ``functools.partial`` when
@@ -67,7 +67,7 @@ class KartaHandler(BaseHTTPRequestHandler):
         """Check if the request has valid credentials via session or header.
 
         Supports two auth paths:
-        - **Cookie session** (browsers): ``karta_session`` cookie
+        - **Cookie session** (browsers): ``neev_session`` cookie
         - **Authorization header** (curl/API): ``Basic`` scheme
         """
         if self.config.username is None or self.config.password is None:
@@ -95,14 +95,14 @@ class KartaHandler(BaseHTTPRequestHandler):
             self._send_401()
             return False
 
-        self._redirect("/_karta/login")
+        self._redirect("/_neev/login")
         return False
 
     def _send_401(self) -> None:
         """Send a 401 for API/curl clients using the Authorization header."""
         body = b"401 Unauthorized"
         self.send_response(401)
-        self.send_header("WWW-Authenticate", 'Basic realm="karta"')
+        self.send_header("WWW-Authenticate", 'Basic realm="neev"')
         self.send_header("Content-Type", "text/plain; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
@@ -112,11 +112,11 @@ class KartaHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: PLR0911
         """Handle GET requests: auth pages, files, directories, static."""
-        if self._auth_enabled() and self.path == "/_karta/login":
+        if self._auth_enabled() and self.path == "/_neev/login":
             self._serve_login_page()
             return
 
-        if self._auth_enabled() and self.path == "/_karta/logout":
+        if self._auth_enabled() and self.path == "/_neev/logout":
             self._handle_logout()
             return
 
@@ -127,7 +127,7 @@ class KartaHandler(BaseHTTPRequestHandler):
             serve_favicon(self)
             return
 
-        if self.path.startswith("/_karta/static/"):
+        if self.path.startswith("/_neev/static/"):
             serve_static(self, self.path)
             return
 
@@ -156,7 +156,7 @@ class KartaHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         """Handle POST requests: login, file uploads, folder creation."""
-        if self._auth_enabled() and self.path == "/_karta/login":
+        if self._auth_enabled() and self.path == "/_neev/login":
             self._handle_login()
             return
 
@@ -307,7 +307,7 @@ def run_server(config: Config) -> None:
         config: The resolved server configuration.
     """
     sessions = SessionStore()
-    handler = partial(KartaHandler, config, sessions)
+    handler = partial(NeevHandler, config, sessions)
     server = HTTPServer((config.host, config.port), handler)
     try:
         server.serve_forever()

@@ -6,9 +6,9 @@ from urllib.request import Request, urlopen
 
 import pytest
 
-from karta.auth import SessionStore
-from karta.config import Config
-from karta.server import KartaHandler, run_server
+from neev.auth import SessionStore
+from neev.config import Config
+from neev.server import NeevHandler, run_server
 
 
 # -- Test fixtures -----------------------------------------------------------
@@ -47,7 +47,7 @@ def config(serve_dir):
 def server(config):
     """Start a real HTTP server on a random port, yield base URL, shut down after."""
     sessions = SessionStore()
-    handler = partial(KartaHandler, config, sessions)
+    handler = partial(NeevHandler, config, sessions)
     httpd = HTTPServer(("127.0.0.1", 0), handler)
     port = httpd.server_address[1]
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
@@ -143,26 +143,26 @@ class TestDirectoryServing:
 
 class TestStaticAssets:
     def test_serve_css(self, server):
-        status, headers, body = _get(server, "/_karta/static/karta.css")
+        status, headers, body = _get(server, "/_neev/static/neev.css")
         assert status == 200
         assert headers["Content-Type"] == "text/css; charset=utf-8"
         assert b"tailwindcss" in body
 
     def test_serve_js(self, server):
-        status, headers, _ = _get(server, "/_karta/static/alpine.min.js")
+        status, headers, _ = _get(server, "/_neev/static/alpine.min.js")
         assert status == 200
         assert "javascript" in headers["Content-Type"]
 
     def test_cache_header(self, server):
-        _, headers, _ = _get(server, "/_karta/static/karta.css")
+        _, headers, _ = _get(server, "/_neev/static/neev.css")
         assert "max-age=86400" in headers["Cache-Control"]
 
     def test_404_nonexistent_static(self, server):
-        status, _, _ = _get(server, "/_karta/static/nope.css")
+        status, _, _ = _get(server, "/_neev/static/nope.css")
         assert status == 404
 
     def test_404_directory_traversal(self, server):
-        status, _, _ = _get(server, "/_karta/static/../server.py")
+        status, _, _ = _get(server, "/_neev/static/../server.py")
         assert status == 404
 
 
@@ -225,13 +225,13 @@ class TestRequestLogging:
 
     def test_log_request_non_digit_code(self):
         with patch("sys.stderr.isatty", return_value=False):
-            handler = KartaHandler.__new__(KartaHandler)
+            handler = NeevHandler.__new__(NeevHandler)
             handler.command = "GET"
             handler.path = "/test"
             handler.log_request("-")
 
     def test_log_message_suppressed(self):
-        handler = KartaHandler.__new__(KartaHandler)
+        handler = NeevHandler.__new__(NeevHandler)
         handler.log_message("test %s", "arg")
 
 
