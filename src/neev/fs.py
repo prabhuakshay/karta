@@ -89,6 +89,21 @@ def is_previewable_type(mime_type: str) -> bool:
     return mime_type.startswith(_PREVIEWABLE_PREFIXES)
 
 
+_MARKDOWN_EXTENSIONS = {".md", ".markdown", ".mdown", ".mkd", ".mkdn"}
+
+
+def is_markdown_file(path: Path) -> bool:
+    """Check whether a file path has a markdown extension.
+
+    Args:
+        path: Path to check (only the suffix is inspected).
+
+    Returns:
+        ``True`` if the file extension is a known markdown variant.
+    """
+    return path.suffix.lower() in _MARKDOWN_EXTENSIONS
+
+
 def list_directory(path: Path, show_hidden: bool) -> list[FileEntry]:
     """List a directory's contents as FileEntry objects.
 
