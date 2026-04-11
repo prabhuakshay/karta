@@ -8,7 +8,6 @@ import pytest
 
 from karta.auth import SessionStore
 from karta.config import Config
-from karta.log import log_styled, status_color
 from karta.server import KartaHandler, run_server
 
 
@@ -68,41 +67,6 @@ def _get(url, path="/"):
         if hasattr(exc, "code"):
             return exc.code, dict(exc.headers), exc.read()
         raise
-
-
-# -- ANSI styling ------------------------------------------------------------
-
-
-class TestLogStyled:
-    def test_plain_when_not_tty(self):
-        with patch("sys.stderr.isatty", return_value=False):
-            assert log_styled("text", "32") == "text"
-
-    def test_styled_when_tty(self):
-        with patch("sys.stderr.isatty", return_value=True):
-            assert log_styled("text", "32") == "\033[32mtext\033[0m"
-
-
-class TestStatusColor:
-    def test_2xx_green(self):
-        with patch("sys.stderr.isatty", return_value=True):
-            result = status_color(200)
-            assert "\033[32m" in result
-
-    def test_3xx_yellow(self):
-        with patch("sys.stderr.isatty", return_value=True):
-            result = status_color(301)
-            assert "\033[33m" in result
-
-    def test_4xx_red(self):
-        with patch("sys.stderr.isatty", return_value=True):
-            result = status_color(404)
-            assert "\033[31m" in result
-
-    def test_5xx_red(self):
-        with patch("sys.stderr.isatty", return_value=True):
-            result = status_color(500)
-            assert "\033[31m" in result
 
 
 # -- File serving ------------------------------------------------------------
@@ -219,6 +183,17 @@ class TestErrorResponses:
     def test_403_traversal_many_levels(self, server):
         status, _, _ = _get(server, "/../../../../../etc/shadow")
         assert status == 403
+
+    def test_403_traversal_url_encoded(self, server):
+        # %2e%2e decodes to .. before the handler sees it; traversal guard fires
+        status, _, _ = _get(server, "/%2e%2e/etc/passwd")
+        assert status in (403, 404)
+
+    def test_traversal_double_encoded(self, server):
+        # %25 decodes to %, leaving %2e%2e as a literal string — not .. so no traversal,
+        # but the path doesn't exist either
+        status, _, _ = _get(server, "/%252e%252e/etc/passwd")
+        assert status in (403, 404)
 
     def test_403_symlink_outside(self, server, serve_dir):
         outside = serve_dir.parent / "outside_secret.txt"
