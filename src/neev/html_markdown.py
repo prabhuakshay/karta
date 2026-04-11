@@ -116,21 +116,22 @@ _MARKDOWN_TEMPLATE = """\
 </html>"""
 
 
-def render_markdown_preview(filename: str, raw_url: str, parent_url: str) -> str:
+def render_markdown_preview(filename: str, raw_url: str, raw_url_js: str, parent_url: str) -> str:
     """Render an HTML page that previews a markdown file.
 
     Args:
-        filename: Display name of the markdown file (pre-escaped).
-        raw_url: URL to fetch the raw markdown content (pre-escaped).
-        parent_url: URL of the parent directory (pre-escaped).
+        filename: Display name of the markdown file (pre-escaped for HTML).
+        raw_url: URL for the download link (pre-escaped for HTML attributes).
+        raw_url_js: URL to fetch raw markdown (JSON-encoded string literal).
+        parent_url: URL of the parent directory (pre-escaped for HTML).
 
     Returns:
         Complete HTML page as a string.
     """
-    js = MARKDOWN_JS.format(raw_url=raw_url)
-    html = _MARKDOWN_TEMPLATE.replace("{css}", MARKDOWN_CSS)
-    html = html.replace("{js}", js)
-    return Template(html).safe_substitute(
+    js = MARKDOWN_JS.format(raw_url=raw_url_js)
+    html_str = _MARKDOWN_TEMPLATE.replace("{css}", MARKDOWN_CSS)
+    html_str = html_str.replace("{js}", js)
+    return Template(html_str).safe_substitute(
         filename=filename,
         raw_url=raw_url,
         parent_url=parent_url,

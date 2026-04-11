@@ -77,7 +77,7 @@ MARKDOWN_CSS = """\
 # Uses {{ / }} for literal braces since this is .format()-interpolated
 MARKDOWN_JS = """\
     (function() {{
-      var rawUrl = "{raw_url}";
+      var rawUrl = {raw_url};
       var mdEl = document.getElementById("md-content");
       var rawEl = document.getElementById("raw-content");
       var renderedEl = document.getElementById("rendered");

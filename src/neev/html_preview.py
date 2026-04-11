@@ -98,14 +98,14 @@ def render_image_preview(filename: str, raw_url: str, parent_url: str, download_
     )
 
 
-def render_text_preview(filename: str, raw_url: str, parent_url: str, download_url: str) -> str:
+def render_text_preview(filename: str, raw_url_js: str, parent_url: str, download_url: str) -> str:
     """Render a preview page for a text/code file with syntax highlighting.
 
     Args:
-        filename: Display name of the file (pre-escaped).
-        raw_url: URL to the raw file content (pre-escaped).
-        parent_url: URL of the parent directory (pre-escaped).
-        download_url: URL for forced download (pre-escaped).
+        filename: Display name of the file (pre-escaped for HTML).
+        raw_url_js: URL to the raw file content (JSON-encoded string literal).
+        parent_url: URL of the parent directory (pre-escaped for HTML).
+        download_url: URL for forced download (pre-escaped for HTML).
 
     Returns:
         Complete HTML page as a string.
@@ -124,7 +124,7 @@ def render_text_preview(filename: str, raw_url: str, parent_url: str, download_u
         '    <script defer src="https://cdn.jsdelivr.net/gh/highlightjs/'
         'cdn-release/build/highlight.min.js"></script>'
         "    <script>"
-        f"    fetch('{raw_url}')"
+        f"    fetch({raw_url_js})"
         "      .then(function(r) { return r.text(); })"
         "      .then(function(text) {"
         "        var el = document.getElementById('code-content');"
