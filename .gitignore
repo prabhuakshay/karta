@@ -201,6 +201,9 @@ cython_debug/
 #   you could uncomment the following to ignore the entire vscode folder
 # .vscode/
 
+# Coverage database in static/ (not caught by root .coverage pattern)
+src/neev/static/.coverage
+
 # Node (Tailwind CSS build tooling)
 node_modules/
 package.json

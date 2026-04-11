@@ -16,6 +16,9 @@ neev = "neev:main"
 requires = ["uv_build>=0.10.12,<0.11.0"]
 build-backend = "uv_build"
 
+[tool.uv.build-backend]
+source-exclude = ["src/neev/static/.coverage", "src/neev/static/input.css"]
+
 [dependency-groups]
 dev = [
     "prek>=0.3.8",
