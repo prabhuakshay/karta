@@ -19,6 +19,11 @@ from neev.config import Config
 from neev.html_login import render_login_page
 
 
+def _is_secure_context(handler: BaseHTTPRequestHandler) -> bool:
+    """Check whether the request arrived over HTTPS (directly or via proxy)."""
+    return handler.headers.get("X-Forwarded-Proto", "").lower() == "https"
+
+
 def serve_login_page(handler: BaseHTTPRequestHandler, error: str | None = None) -> None:
     """Serve the login form page.
 
@@ -80,11 +85,12 @@ def handle_login(
 
     rate_limiter.record_success(client_ip)
     token = sessions.create()
+    secure = "; Secure" if _is_secure_context(handler) else ""
     handler.send_response(303)
     handler.send_header("Location", "/")
     handler.send_header(
         "Set-Cookie",
-        f"{COOKIE_NAME}={token}; Path=/; HttpOnly; SameSite=Strict",
+        f"{COOKIE_NAME}={token}; Path=/; HttpOnly; SameSite=Strict{secure}",
     )
     handler.send_header("Cache-Control", "no-store")
     handler.end_headers()
@@ -102,11 +108,12 @@ def handle_logout(handler: BaseHTTPRequestHandler, sessions: SessionStore) -> No
     if token:
         sessions.invalidate(token)
 
+    secure = "; Secure" if _is_secure_context(handler) else ""
     handler.send_response(303)
     handler.send_header("Location", "/_neev/login")
     handler.send_header(
         "Set-Cookie",
-        f"{COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0",
+        f"{COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0{secure}",
     )
     handler.send_header("Cache-Control", "no-store")
     handler.end_headers()
