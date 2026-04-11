@@ -9,7 +9,7 @@ import mimetypes
 import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 
 logger = logging.getLogger(__name__)
@@ -92,7 +92,7 @@ def is_previewable_type(mime_type: str) -> bool:
 _MARKDOWN_EXTENSIONS = {".md", ".markdown", ".mdown", ".mkd", ".mkdn"}
 
 
-def is_markdown_file(path: Path) -> bool:
+def is_markdown_file(path: Path | PurePosixPath) -> bool:
     """Check whether a file path has a markdown extension.
 
     Args:

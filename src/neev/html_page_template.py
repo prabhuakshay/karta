@@ -52,7 +52,9 @@ PAGE_TEMPLATE = """\
       localStorage.setItem('neev-download-mode', downloadMode);
       $el.querySelectorAll('.file-link').forEach(a => {{
         const base = a.getAttribute('data-href');
-        if (base) a.href = downloadMode ? base + '?download' : base;
+        if (!base) return;
+        const preview = a.getAttribute('data-preview-href');
+        a.href = downloadMode ? base + '?download' : (preview || base);
       }});
       const f = filter.toLowerCase();
       $el.querySelectorAll('tbody tr').forEach(r => {{
