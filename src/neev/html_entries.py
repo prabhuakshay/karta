@@ -14,7 +14,7 @@ from neev.html_icons import icon_for_entry
 
 
 _COPY_ICON = (
-    '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"'
+    '<svg class="w-3.5 h-3.5" aria-hidden="true" fill="none" stroke="currentColor"'
     ' viewBox="0 0 24 24"><path stroke-linecap="round"'
     ' stroke-linejoin="round" stroke-width="2"'
     ' d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2'
@@ -23,7 +23,7 @@ _COPY_ICON = (
 )
 
 _CHECK_ICON = (
-    '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"'
+    '<svg class="w-3.5 h-3.5" aria-hidden="true" fill="none" stroke="currentColor"'
     ' viewBox="0 0 24 24"><path stroke-linecap="round"'
     ' stroke-linejoin="round" stroke-width="2"'
     ' d="M5 13l4 4L19 7"/></svg>'
@@ -273,7 +273,7 @@ def render_entry_card(entry: FileEntry, request_path: str) -> str:
     data_attrs = _file_data_attrs(entry, href)
 
     chevron = (
-        '<svg class="w-4 h-4 text-ink-300 shrink-0" fill="none" '
+        '<svg class="w-4 h-4 text-ink-300 shrink-0" aria-hidden="true" fill="none" '
         'stroke="currentColor" viewBox="0 0 24 24">'
         '<path stroke-linecap="round" stroke-linejoin="round" '
         'stroke-width="2" d="M9 5l7 7-7 7"/></svg>'

@@ -60,7 +60,7 @@ def _render_select_bar(zip_href: str) -> str:
         " text-sm font-semibold text-white bg-sage-500"
         " rounded-lg hover:bg-sage-600 active:bg-sage-700"
         ' transition-colors duration-150">'
-        '<svg class="w-4 h-4" fill="none" stroke="currentColor"'
+        '<svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor"'
         ' viewBox="0 0 24 24"><path stroke-linecap="round"'
         ' stroke-linejoin="round" stroke-width="2"'
         ' d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4 M7 10l5 5'
@@ -141,7 +141,7 @@ def render_directory_listing(
             '<div class="text-center py-20">'
             '<div class="w-16 h-16 rounded-xl bg-surface-2 '
             'flex items-center justify-center mx-auto mb-4">'
-            '<svg class="w-8 h-8 text-ink-300" fill="none" '
+            '<svg class="w-8 h-8 text-ink-300" aria-hidden="true" fill="none" '
             'stroke="currentColor" viewBox="0 0 24 24">'
             '<path stroke-linecap="round" stroke-linejoin="round" '
             'stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 '
@@ -165,7 +165,7 @@ def render_directory_listing(
             " hover:border-surface-4 hover:shadow-sm"
             " active:bg-surface-3 transition-all duration-150"
             ' whitespace-nowrap" title="Download as ZIP">'
-            '<svg class="w-4 h-4" fill="none" stroke="currentColor"'
+            '<svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor"'
             ' viewBox="0 0 24 24"><path stroke-linecap="round"'
             ' stroke-linejoin="round" stroke-width="2"'
             ' d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4 M7 10l5 5'
@@ -182,7 +182,7 @@ def render_directory_listing(
             " text-sm font-semibold rounded-lg border cursor-pointer"
             ' transition-all duration-150 whitespace-nowrap"'
             ' title="Select files">'
-            '<svg class="w-4 h-4" fill="none" stroke="currentColor"'
+            '<svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor"'
             ' viewBox="0 0 24 24"><path stroke-linecap="round"'
             ' stroke-linejoin="round" stroke-width="2"'
             ' d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7'
@@ -209,7 +209,7 @@ def render_directory_listing(
         banner_html = (
             '<div class="mb-4 px-4 py-3 bg-sage-50 border border-sage-200'
             ' rounded-lg flex items-center gap-3">'
-            '<svg class="w-4 h-4 text-sage-500 shrink-0" fill="none"'
+            '<svg class="w-4 h-4 text-sage-500 shrink-0" aria-hidden="true" fill="none"'
             ' stroke="currentColor" viewBox="0 0 24 24">'
             '<path stroke-linecap="round" stroke-linejoin="round"'
             ' stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01'

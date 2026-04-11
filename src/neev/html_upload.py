@@ -12,7 +12,7 @@ from neev.html_upload_js import get_upload_script
 # -- SVG icons ----------------------------------------------------------------
 
 _UPLOAD_ICON_LG = (
-    '<svg class="w-8 h-8" fill="none" stroke="currentColor" '
+    '<svg class="w-8 h-8" aria-hidden="true" fill="none" stroke="currentColor" '
     'stroke-width="1.5" viewBox="0 0 24 24">'
     '<path stroke-linecap="round" stroke-linejoin="round" '
     'd="M12 16V4m0 0l-4 4m4-4l4 4"/>'
@@ -21,7 +21,7 @@ _UPLOAD_ICON_LG = (
 )
 
 _FOLDER_PLUS_ICON = (
-    '<svg class="w-4 h-4" fill="none" stroke="currentColor" '
+    '<svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" '
     'viewBox="0 0 24 24"><path stroke-linecap="round" '
     'stroke-linejoin="round" stroke-width="2" '
     'd="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8'
@@ -29,14 +29,14 @@ _FOLDER_PLUS_ICON = (
 )
 
 _X_ICON = (
-    '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" '
+    '<svg class="w-3.5 h-3.5" aria-hidden="true" fill="none" stroke="currentColor" '
     'viewBox="0 0 24 24"><path stroke-linecap="round" '
     'stroke-linejoin="round" stroke-width="2" '
     'd="M6 18L18 6M6 6l12 12"/></svg>'
 )
 
 _FILE_ICON = (
-    '<svg class="w-4 h-4 text-ink-400 shrink-0" fill="none" '
+    '<svg class="w-4 h-4 text-ink-400 shrink-0" aria-hidden="true" fill="none" '
     'stroke="currentColor" viewBox="0 0 24 24">'
     '<path stroke-linecap="round" stroke-linejoin="round" '
     'stroke-width="2" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 '

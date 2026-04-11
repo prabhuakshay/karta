@@ -36,10 +36,10 @@ _MARKDOWN_TEMPLATE = """\
         <a href="$parent_url" class="flex items-center gap-2
           text-ink-400 hover:text-sage-500 transition-colors
           duration-150 shrink-0" title="Back to folder">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor"
-            viewBox="0 0 24 24"><path stroke-linecap="round"
-            stroke-linejoin="round" stroke-width="2"
-            d="M15 19l-7-7 7-7"/></svg>
+          <svg class="w-4 h-4" aria-hidden="true" fill="none"
+            stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+            stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         </a>
         <span class="text-sm text-ink-800 font-semibold
           truncate">$filename</span>
@@ -51,7 +51,7 @@ _MARKDOWN_TEMPLATE = """\
             font-semibold rounded-lg border border-surface-3
             hover:bg-surface-2 active:bg-surface-3
             transition-colors duration-150 whitespace-nowrap">
-          <svg class="w-4 h-4" fill="none"
+          <svg class="w-4 h-4" aria-hidden="true" fill="none"
             stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round"
               stroke-width="2"
@@ -65,7 +65,7 @@ _MARKDOWN_TEMPLATE = """\
             font-semibold rounded-lg border border-surface-3
             hover:bg-surface-2 active:bg-surface-3
             transition-colors duration-150 whitespace-nowrap">
-          <svg class="w-4 h-4" fill="none"
+          <svg class="w-4 h-4" aria-hidden="true" fill="none"
             stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round"
               stroke-width="2"
