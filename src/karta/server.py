@@ -1,5 +1,6 @@
 """HTTP server and request handler for karta."""
 
+import re
 import shutil
 import sys
 from functools import partial
@@ -286,7 +287,7 @@ class KartaHandler(BaseHTTPRequestHandler):
             self._send_error(403, "ZIP downloads are disabled")
             return
 
-        dir_name = resolved.name or "root"
+        dir_name = re.sub(r"[^\w. -]", "_", resolved.name or "root")
         try:
             stream = create_zip_stream(
                 directory=resolved,
