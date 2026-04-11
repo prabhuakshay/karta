@@ -89,6 +89,8 @@ def is_previewable_type(mime_type: str) -> bool:
     return mime_type.startswith(_PREVIEWABLE_PREFIXES)
 
 
+_HIDDEN_FILES = {"neev.toml"}
+
 _MARKDOWN_EXTENSIONS = {".md", ".markdown", ".mdown", ".mkd", ".mkdn"}
 
 
@@ -121,6 +123,8 @@ def list_directory(path: Path, show_hidden: bool) -> list[FileEntry]:
     entries: list[FileEntry] = []
     with os.scandir(path) as it:
         for entry in it:
+            if entry.name in _HIDDEN_FILES:
+                continue
             if not show_hidden and entry.name.startswith("."):
                 continue
             try:

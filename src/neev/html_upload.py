@@ -87,7 +87,8 @@ def render_upload_section(request_path: str) -> str:
     return (
         # Single card wrapping everything
         f'<div class="mt-8 bg-surface-1 shadow-card rounded-xl '
-        f'overflow-hidden" x-data="uploadZone">'
+        f'overflow-hidden" x-data="uploadZone" '
+        f'@paste.window="handlePaste($event)">'
         f"{_render_upload_form(action)}"
         f"{_render_create_folder(mkdir_action)}"
         f"</div>"
@@ -150,7 +151,8 @@ def _drop_zone() -> str:
         f'<p class="text-sm font-medium text-ink-600">'
         f"Drop files here or "
         f'<span class="text-sage-500 font-semibold">browse</span></p>'
-        f'<p class="text-xs text-ink-300 mt-1">100 MB limit</p>'
+        f'<p class="text-xs text-ink-300 mt-1">100 MB limit'
+        f" &middot; or paste from clipboard</p>"
         f"</div>"
         # Segmented control inside the drop zone
         f"{_segmented_control()}"

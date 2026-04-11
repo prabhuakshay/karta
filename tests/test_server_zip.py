@@ -70,6 +70,19 @@ def _get(url, path="/"):
         raise
 
 
+def _post(url, path="/", body=b"", content_type="application/x-www-form-urlencoded"):
+    """Make a POST request and return (status, headers, body)."""
+    req = Request(f"{url}{path}", data=body, method="POST")
+    req.add_header("Content-Type", content_type)
+    try:
+        resp = urlopen(req)
+        return resp.status, dict(resp.headers), resp.read()
+    except Exception as exc:
+        if hasattr(exc, "code"):
+            return exc.code, dict(exc.headers), exc.read()  # type: ignore[attr-defined]
+        raise
+
+
 def _zip_server_for(config: Config):
     """Start a ZIP-enabled server for the given config; return (httpd, base_url)."""
     sessions = SessionStore()
@@ -176,6 +189,91 @@ class TestZipDownload:
             disposition = headers["Content-Disposition"]
             assert "\n" not in disposition
             assert "\r" not in disposition
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
+
+
+class TestSelectiveZipDownload:
+    def test_selective_zip_single_file(self, zip_server):
+        status, headers, body = _post(zip_server, "/?zip", b"items=hello.txt")
+        assert status == 200
+        assert headers["Content-Type"] == "application/zip"
+        zf = zipfile.ZipFile(BytesIO(body))
+        assert "hello.txt" in zf.namelist()
+
+    def test_selective_zip_directory(self, zip_server):
+        status, _, body = _post(zip_server, "/?zip", b"items=subdir")
+        assert status == 200
+        zf = zipfile.ZipFile(BytesIO(body))
+        names = zf.namelist()
+        assert any("nested.txt" in n for n in names)
+
+    def test_selective_zip_multiple_items(self, zip_server):
+        status, _, body = _post(zip_server, "/?zip", b"items=hello.txt&items=subdir")
+        assert status == 200
+        zf = zipfile.ZipFile(BytesIO(body))
+        names = zf.namelist()
+        assert "hello.txt" in names
+        assert any("nested.txt" in n for n in names)
+
+    def test_selective_zip_disabled_returns_403(self, serve_dir):
+        no_zip_config = Config(
+            directory=serve_dir,
+            host="127.0.0.1",
+            port=0,
+            username=None,
+            password=None,
+            show_hidden=False,
+            enable_zip_download=False,
+            max_zip_size=104857600,
+            enable_upload=False,
+        )
+        httpd, base = _zip_server_for(no_zip_config)
+        try:
+            status, _, body = _post(base, "/?zip", b"items=hello.txt")
+            assert status == 403
+            assert b"disabled" in body
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
+
+    def test_selective_zip_empty_items_returns_400(self, zip_server):
+        status, _, _body = _post(zip_server, "/?zip", b"")
+        assert status == 400
+
+    def test_selective_zip_no_items_param_returns_400(self, zip_server):
+        status, _, _body = _post(zip_server, "/?zip", b"other=value")
+        assert status == 400
+
+    def test_selective_zip_invalid_item_skipped(self, zip_server):
+        status, _, body = _post(zip_server, "/?zip", b"items=hello.txt&items=nonexistent.txt")
+        assert status == 200
+        zf = zipfile.ZipFile(BytesIO(body))
+        assert "hello.txt" in zf.namelist()
+        assert "nonexistent.txt" not in zf.namelist()
+
+    def test_selective_zip_filename_has_selected_suffix(self, zip_server):
+        _, headers, _ = _post(zip_server, "/?zip", b"items=hello.txt")
+        assert "selected.zip" in headers["Content-Disposition"]
+
+    def test_selective_zip_too_large_returns_413(self, serve_dir):
+        tiny_config = Config(
+            directory=serve_dir,
+            host="127.0.0.1",
+            port=0,
+            username=None,
+            password=None,
+            show_hidden=False,
+            enable_zip_download=True,
+            max_zip_size=1,
+            enable_upload=False,
+        )
+        httpd, base = _zip_server_for(tiny_config)
+        try:
+            status, _, body = _post(base, "/?zip", b"items=hello.txt")
+            assert status == 413
+            assert b"too large" in body
         finally:
             httpd.shutdown()
             httpd.server_close()

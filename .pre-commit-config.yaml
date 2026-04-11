@@ -46,6 +46,16 @@ repos:
     hooks:
       - id: typos
 
+  # -- CSS build ----------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: tailwind-css
+        name: tailwind-css
+        entry: bash -c 'npx @tailwindcss/cli -i src/neev/static/input.css -o src/neev/static/neev.css --minify && echo >> src/neev/static/neev.css'
+        language: system
+        files: 'src/neev/(html.*\.py|static/input\.css)'
+        pass_filenames: false
+
   # -- Tests -------------------------------------------------------------------
   - repo: local
     hooks:

@@ -6,11 +6,28 @@ Display text is escaped via ``html.escape()``; hrefs use ``urllib.parse.quote``.
 """
 
 import html
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from urllib.parse import quote
 
-from neev.fs import FileEntry, is_markdown_file
+from neev.fs import FileEntry, get_mime_type, is_markdown_file, is_previewable_type
 from neev.html_icons import icon_for_entry
+
+
+_COPY_ICON = (
+    '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"'
+    ' viewBox="0 0 24 24"><path stroke-linecap="round"'
+    ' stroke-linejoin="round" stroke-width="2"'
+    ' d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2'
+    " m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8"
+    ' a2 2 0 002 2z"/></svg>'
+)
+
+_CHECK_ICON = (
+    '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"'
+    ' viewBox="0 0 24 24"><path stroke-linecap="round"'
+    ' stroke-linejoin="round" stroke-width="2"'
+    ' d="M5 13l4 4L19 7"/></svg>'
+)
 
 
 # -- Formatting helpers -------------------------------------------------------
@@ -86,7 +103,8 @@ def _file_data_attrs(entry: FileEntry, href: str) -> str:
     """Build extra HTML attributes for file entry links.
 
     Adds ``data-href`` for all files (used by the download-mode toggle)
-    and ``data-preview-href`` for markdown files (used for rendered preview).
+    and ``data-preview-href`` for previewable files (markdown, images,
+    text, PDF, audio, video).
 
     Args:
         entry: The file entry.
@@ -98,9 +116,88 @@ def _file_data_attrs(entry: FileEntry, href: str) -> str:
     if entry.is_dir:
         return ""
     preview = ""
-    if is_markdown_file(PurePosixPath(entry.name)):
+    if is_markdown_file(PurePosixPath(entry.name)) or is_previewable_type(
+        get_mime_type(Path(entry.name))
+    ):
         preview = f' data-preview-href="{href}?preview"'
     return f' data-href="{href}"{preview}'
+
+
+def _copy_link_button(href: str) -> str:
+    """Render a copy-link button for a file entry.
+
+    Args:
+        href: The URL-safe href for this file.
+
+    Returns:
+        HTML button string with Alpine.js click handler.
+    """
+    return (
+        f"<button @click.prevent.stop=\"copyLink($event, '{href}')\""
+        ' class="copy-link-btn ml-1 p-1 rounded text-ink-300'
+        " hover:text-sage-500 hover:bg-sage-50"
+        " opacity-0 group-hover:opacity-100"
+        " focus:opacity-100 cursor-pointer"
+        ' transition-all duration-150"'
+        ' title="Copy link" type="button">'
+        f'<span class="icon-copy">{_COPY_ICON}</span>'
+        f'<span class="icon-check" style="display:none">{_CHECK_ICON}</span>'
+        "</button>"
+    )
+
+
+def _copy_link_button_mobile(href: str) -> str:
+    """Render a copy-link button for a mobile file card.
+
+    Args:
+        href: The URL-safe href for this file.
+
+    Returns:
+        HTML button string, always visible on mobile.
+    """
+    return (
+        f"<button @click.prevent.stop=\"copyLink($event, '{href}')\""
+        ' class="copy-link-btn p-1.5 rounded text-ink-300'
+        " hover:text-sage-500 hover:bg-sage-50 cursor-pointer"
+        ' transition-all duration-150 shrink-0"'
+        ' title="Copy link" type="button">'
+        f'<span class="icon-copy">{_COPY_ICON}</span>'
+        f'<span class="icon-check" style="display:none">{_CHECK_ICON}</span>'
+        "</button>"
+    )
+
+
+def _js_escape(value: str) -> str:
+    """Escape a string for safe use inside JavaScript single-quoted literals.
+
+    Args:
+        value: The string to escape (already HTML-escaped).
+
+    Returns:
+        String with backslashes and single quotes escaped.
+    """
+    return value.replace("\\", "\\\\").replace("'", "\\'")
+
+
+def _entry_checkbox(name: str, js_name: str) -> str:
+    """Render a select-mode checkbox for a directory entry.
+
+    Args:
+        name: HTML-escaped entry name (for value/data attributes).
+        js_name: JS-escaped entry name (for Alpine expressions).
+
+    Returns:
+        HTML checkbox input string.
+    """
+    return (
+        f'<input type="checkbox" value="{name}"'
+        ' x-show="selectMode"'
+        f" @click.stop=\"toggleItem('{js_name}')\""
+        f" :checked=\"isSelected('{js_name}')\""
+        ' class="w-4 h-4 rounded border-surface-4'
+        ' accent-sage-500 cursor-pointer shrink-0"'
+        f' data-entry-name="{name}">'
+    )
 
 
 # -- Entry renderers ----------------------------------------------------------
@@ -125,19 +222,27 @@ def render_entry_row(entry: FileEntry, request_path: str) -> str:
     name_cls = "text-ink-800 font-medium" if entry.is_dir else "text-ink-700"
 
     data_attrs = _file_data_attrs(entry, href)
+    copy_btn = "" if entry.is_dir else _copy_link_button(href)
+    js_name = _js_escape(name)
+    checkbox = _entry_checkbox(name, js_name)
 
     return (
         f'<tr class="group hover:bg-sage-50 '
-        f'transition-colors duration-100">'
+        f'transition-colors duration-100"'
+        f' @click="if (selectMode) {{ $event.preventDefault();'
+        f" toggleItem('{js_name}'); }}\""
+        f" :class=\"isSelected('{js_name}') ? 'bg-sage-50' : ''\">"
         f'<td class="px-4 py-3">'
+        f'<div class="flex items-center gap-3">'
+        f"{checkbox}"
         f'<a href="{href}"{data_attrs}'
         f' class="{"file-link " if not entry.is_dir else ""}'
-        f"flex items-center gap-3 "
+        f"flex items-center gap-3 min-w-0 "
         f"{name_cls} group-hover:text-sage-500 "
         f'transition-colors duration-150">'
         f"{icon_html}"
         f'<span class="truncate text-sm">{name}</span>{badge}'
-        f"</a></td>"
+        f"</a>{copy_btn}</div></td>"
         f'<td class="px-4 py-3 text-right text-sm '
         f"text-ink-400 font-mono tabular-nums whitespace-nowrap "
         f'hidden sm:table-cell">{size}</td>'
@@ -166,21 +271,34 @@ def render_entry_card(entry: FileEntry, request_path: str) -> str:
     name_cls = "text-ink-800 font-medium" if entry.is_dir else "text-ink-700"
     data_attrs = _file_data_attrs(entry, href)
 
+    chevron = (
+        '<svg class="w-4 h-4 text-ink-300 shrink-0" fill="none" '
+        'stroke="currentColor" viewBox="0 0 24 24">'
+        '<path stroke-linecap="round" stroke-linejoin="round" '
+        'stroke-width="2" d="M9 5l7 7-7 7"/></svg>'
+    )
+    copy_btn = _copy_link_button_mobile(href) if not entry.is_dir else ""
+    trailing = copy_btn + chevron if copy_btn else chevron
+
+    js_name = _js_escape(name)
+    checkbox_mobile = _entry_checkbox(name, js_name)
+
     return (
         f'<a href="{href}"{data_attrs}'
         f' class="{"file-link " if not entry.is_dir else ""}'
         f"flex items-center gap-3 "
         f"px-4 py-3.5 hover:bg-sage-50 "
-        f'transition-colors duration-100">'
+        f'transition-colors duration-100"'
+        f' @click="if (selectMode) {{ $event.preventDefault();'
+        f" toggleItem('{js_name}'); }}\""
+        f" :class=\"isSelected('{js_name}') ? 'bg-sage-50' : ''\">"
+        f"{checkbox_mobile}"
         f"{icon_html}"
         f'<div class="min-w-0 flex-1">'
         f'<div class="{name_cls} truncate text-sm">{name}</div>'
         f'<div class="text-xs text-ink-400 mt-0.5">'
         f"{size} &middot; {date}</div>"
         f"</div>"
-        f'<svg class="w-4 h-4 text-ink-300 shrink-0" fill="none" '
-        f'stroke="currentColor" viewBox="0 0 24 24">'
-        f'<path stroke-linecap="round" stroke-linejoin="round" '
-        f'stroke-width="2" d="M9 5l7 7-7 7"/></svg>'
+        f"{trailing}"
         f"</a>"
     )

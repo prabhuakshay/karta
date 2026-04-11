@@ -7,6 +7,7 @@ from pathlib import Path
 
 from neev.config import Config
 from neev.server import run_server
+from neev.toml_config import load_toml, merge_toml_into_args
 
 
 # -- ANSI styling helpers --------------------------------------------------
@@ -211,6 +212,11 @@ def _build_parser() -> argparse.ArgumentParser:
         default=False,
         help="disable all write operations (overrides --enable-upload)",
     )
+    parser.add_argument(
+        "--banner",
+        default=None,
+        help="message to display at the top of directory listings",
+    )
     return parser
 
 
@@ -236,6 +242,8 @@ def _print_startup_banner(config: Config) -> None:
     print(f"  uploads:       {upload_status}")
     print(f"  zip downloads: {zip_status}")
     print(f"  hidden files:  {hidden_status}")
+    if config.banner:
+        print(f"  banner:        {_on(config.banner)}")
 
 
 def build_config(args: argparse.Namespace) -> Config:
@@ -267,6 +275,7 @@ def build_config(args: argparse.Namespace) -> Config:
         enable_zip_download=args.enable_zip_download,
         max_zip_size=args.max_zip_size * 1024 * 1024,
         enable_upload=enable_upload,
+        banner=args.banner,
     )
 
 
@@ -274,6 +283,10 @@ def main() -> None:
     """Entry point for the neev CLI."""
     parser = _build_parser()
     args = parser.parse_args()
+    directory = _validate_directory(args.directory)
+    toml_data = load_toml(directory)
+    if toml_data:
+        merge_toml_into_args(args, toml_data, parser)
     config = build_config(args)
     _print_startup_banner(config)
     run_server(config)

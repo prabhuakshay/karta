@@ -3,11 +3,13 @@
 @source "../html.py";
 @source "../html_entries.py";
 @source "../html_icons.py";
+@source "../html_login.py";
 @source "../html_upload.py";
 @source "../html_upload_js.py";
 @source "../html_markdown.py";
 @source "../html_markdown_assets.py";
 @source "../html_page_template.py";
+@source "../html_preview.py";
 
 @theme {
   --color-surface-0: #EFEBE4;
