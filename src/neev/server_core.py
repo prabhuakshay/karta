@@ -7,6 +7,7 @@ is passed as the first argument.
 
 from __future__ import annotations
 
+import os
 import shutil
 from typing import TYPE_CHECKING
 
@@ -42,19 +43,28 @@ def serve_file(
         force_download: Force ``Content-Disposition: attachment``.
         auth_enabled: Whether to send ``Cache-Control: no-store``.
     """
-    mime_type = get_mime_type(path)
-    dtype = "attachment" if force_download or not is_previewable_type(mime_type) else "inline"
-    disposition = format_content_disposition(dtype, path.name)
+    try:
+        f = path.open("rb")
+    except OSError:
+        _send_error(handler, 404, "File not found")
+        return
 
-    handler.send_response(200)
-    handler.send_header("Content-Type", mime_type)
-    handler.send_header("Content-Disposition", disposition)
-    handler.send_header("Content-Length", str(path.stat().st_size))
-    if auth_enabled:
-        handler.send_header("Cache-Control", "no-store")
-    handler.end_headers()
-    with path.open("rb") as f:
+    try:
+        size = os.fstat(f.fileno()).st_size
+        mime_type = get_mime_type(path)
+        dtype = "attachment" if force_download or not is_previewable_type(mime_type) else "inline"
+        disposition = format_content_disposition(dtype, path.name)
+
+        handler.send_response(200)
+        handler.send_header("Content-Type", mime_type)
+        handler.send_header("Content-Disposition", disposition)
+        handler.send_header("Content-Length", str(size))
+        if auth_enabled:
+            handler.send_header("Cache-Control", "no-store")
+        handler.end_headers()
         shutil.copyfileobj(f, handler.wfile, length=65536)
+    finally:
+        f.close()
 
 
 def serve_directory(
