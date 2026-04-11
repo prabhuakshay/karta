@@ -4,6 +4,7 @@
 @source "../html_entries.py";
 @source "../html_icons.py";
 @source "../html_upload.py";
+@source "../html_upload_js.py";
 
 @theme {
   --color-surface-0: #EFEBE4;
