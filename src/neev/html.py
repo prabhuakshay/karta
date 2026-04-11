@@ -1,4 +1,4 @@
-"""HTML page rendering for karta directory listings.
+"""HTML page rendering for neev directory listings.
 
 Assembles complete HTML pages using entry renderers from ``html_entries``.
 All user-controlled content is escaped via ``html.escape()``.
@@ -7,10 +7,10 @@ All user-controlled content is escaped via ``html.escape()``.
 import html
 from pathlib import Path, PurePosixPath
 
-from karta.fs import FileEntry
-from karta.html_entries import render_entry_card, render_entry_row
-from karta.html_page_template import PAGE_TEMPLATE
-from karta.html_upload import render_upload_section
+from neev.fs import FileEntry
+from neev.html_entries import render_entry_card, render_entry_row
+from neev.html_page_template import PAGE_TEMPLATE
+from neev.html_upload import render_upload_section
 
 
 # -- Navigation helpers -------------------------------------------------------
@@ -208,7 +208,7 @@ def render_directory_listing(
     logout_html = ""
     if auth_enabled:
         logout_html = (
-            '<a href="/_karta/logout" class="text-xs text-ink-400'
+            '<a href="/_neev/logout" class="text-xs text-ink-400'
             " hover:text-sage-500 transition-colors duration-150"
             ' whitespace-nowrap ml-4" title="Sign out">Sign out</a>'
         )

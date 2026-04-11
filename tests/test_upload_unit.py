@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from karta.upload import (
+from neev.upload import (
     MAX_UPLOAD_SIZE,
     UploadError,
     _extract_boundary,

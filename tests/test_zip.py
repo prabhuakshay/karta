@@ -1,10 +1,10 @@
-"""Tests for karta.zip — ZIP archive generation."""
+"""Tests for neev.zip — ZIP archive generation."""
 
 import zipfile
 
 import pytest
 
-from karta.zip import ZipSizeLimitError, create_zip_stream
+from neev.zip import ZipSizeLimitError, create_zip_stream
 
 
 # -- Fixtures ----------------------------------------------------------------

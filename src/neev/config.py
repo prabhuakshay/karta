@@ -1,4 +1,4 @@
-"""Configuration dataclass for karta."""
+"""Configuration dataclass for neev."""
 
 from dataclasses import dataclass
 from pathlib import Path

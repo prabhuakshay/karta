@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from karta.config import Config
+from neev.config import Config
 
 
 @pytest.fixture

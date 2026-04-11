@@ -10,9 +10,9 @@ from urllib.request import Request, urlopen
 
 import pytest
 
-from karta.auth import SessionStore
-from karta.config import Config
-from karta.server import KartaHandler
+from neev.auth import SessionStore
+from neev.config import Config
+from neev.server import NeevHandler
 
 
 # -- Test fixtures -----------------------------------------------------------
@@ -48,7 +48,7 @@ def zip_config(serve_dir):
 def zip_server(zip_config):
     """Start a server with ZIP downloads enabled."""
     sessions = SessionStore()
-    handler = partial(KartaHandler, zip_config, sessions)
+    handler = partial(NeevHandler, zip_config, sessions)
     httpd = HTTPServer(("127.0.0.1", 0), handler)
     port = httpd.server_address[1]
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
@@ -73,7 +73,7 @@ def _get(url, path="/"):
 def _zip_server_for(config: Config):
     """Start a ZIP-enabled server for the given config; return (httpd, base_url)."""
     sessions = SessionStore()
-    handler = partial(KartaHandler, config, sessions)
+    handler = partial(NeevHandler, config, sessions)
     httpd = HTTPServer(("127.0.0.1", 0), handler)
     port = httpd.server_address[1]
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)

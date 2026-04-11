@@ -1,4 +1,4 @@
-"""Login page rendering for karta.
+"""Login page rendering for neev.
 
 Uses inline styles because static assets (CSS, JS) are behind auth
 and cannot load before the user authenticates.
@@ -36,7 +36,7 @@ _LOGIN_TEMPLATE = """\
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sign in &mdash; karta</title>
+  <title>Sign in &mdash; neev</title>
   <style>
     *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
 
@@ -184,12 +184,12 @@ _LOGIN_TEMPLATE = """\
   <div class="card">
     <div class="logo">
       <div class="logo-icon"><span>K</span></div>
-      <span class="logo-text">karta</span>
+      <span class="logo-text">neev</span>
     </div>
 
     {error_html}
 
-    <form method="POST" action="/_karta/login">
+    <form method="POST" action="/_neev/login">
       <div class="field">
         <label for="username">Username</label>
         <input type="text" id="username" name="username"
@@ -206,7 +206,7 @@ _LOGIN_TEMPLATE = """\
   </div>
 
   <div class="footer">
-    <p>served by <span>karta</span></p>
+    <p>served by <span>neev</span></p>
   </div>
 </body>
 </html>"""

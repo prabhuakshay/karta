@@ -1,4 +1,4 @@
-"""Static asset serving for karta.
+"""Static asset serving for neev.
 
 Handles bundled CSS/JS files, the favicon, and cache headers.
 Extracted from ``server.py`` to keep the main handler under the line limit.
@@ -27,20 +27,20 @@ _asset_cache: dict[str, bytes] = {}
 
 
 def serve_static(handler: BaseHTTPRequestHandler, url_path: str) -> None:
-    """Serve bundled static assets from the karta package.
+    """Serve bundled static assets from the neev package.
 
     Args:
         handler: The active request handler (for sending response).
-        url_path: The full URL path (e.g. ``/_karta/static/karta.css``).
+        url_path: The full URL path (e.g. ``/_neev/static/neev.css``).
     """
-    filename = url_path.removeprefix("/_karta/static/")
+    filename = url_path.removeprefix("/_neev/static/")
     if not filename or "/" in filename:
         _send_error(handler, 404, "Not Found")
         return
 
     try:
         if filename not in _asset_cache:
-            ref = importlib.resources.files("karta").joinpath("static", filename)
+            ref = importlib.resources.files("neev").joinpath("static", filename)
             _asset_cache[filename] = ref.read_bytes()
         content = _asset_cache[filename]
     except (FileNotFoundError, TypeError):

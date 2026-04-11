@@ -1,4 +1,4 @@
-"""Filesystem operations and path traversal protection for karta.
+"""Filesystem operations and path traversal protection for neev.
 
 This module is the security boundary: every filesystem access goes through
 ``resolve_safe_path`` to ensure paths stay within the served directory.

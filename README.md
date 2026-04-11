@@ -1,46 +1,46 @@
 <p align="center">
-  <img src="assets/karta-icon.jpg" alt="karta" width="120">
+  <img src="assets/neev-icon.jpg" alt="neev" width="120">
 </p>
 
-<h1 align="center">karta</h1>
+<h1 align="center">neev</h1>
 
 <p align="center">
 Zero-dependency Python CLI for sharing local directories over HTTP with authentication, file browsing, and ZIP downloads.
 </p>
 
-`python -m http.server` is great for quick local sharing, but it lacks basic protections and convenience features — no authentication, no way to download folders, no upload support, no control over what's visible. karta fills that gap. It's a single command that serves any directory with a clean browser interface, HTTP Basic Auth, optional uploads, and ZIP folder downloads. No dependencies, no configuration files, just a CLI that does the right thing out of the box.
+`python -m http.server` is great for quick local sharing, but it lacks basic protections and convenience features — no authentication, no way to download folders, no upload support, no control over what's visible. neev fills that gap. It's a single command that serves any directory with a clean browser interface, HTTP Basic Auth, optional uploads, and ZIP folder downloads. No dependencies, no configuration files, just a CLI that does the right thing out of the box.
 
-karta is built for developers sharing build artifacts, teams exchanging files on a local network, or anyone who needs a quick self-hosted file browser without spinning up a full server.
+neev is built for developers sharing build artifacts, teams exchanging files on a local network, or anyone who needs a quick self-hosted file browser without spinning up a full server.
 
 ## Usage
 
 ```bash
 # Serve current directory
-karta
+neev
 
 # Serve a specific directory
-karta --dir ./public
+neev --dir ./public
 
 # Serve with authentication
-karta --auth user:pass
+neev --auth user:pass
 
 # Custom host and port
-karta --dir /tmp/share --host 0.0.0.0 --port 8080
+neev --dir /tmp/share --host 0.0.0.0 --port 8080
 
 # Read-only mode (no uploads even if enabled elsewhere)
-karta --read-only
+neev --read-only
 
 # Enable folder ZIP downloads
-karta --enable-zip-download
+neev --enable-zip-download
 
 # Enable file uploads
-karta --enable-upload
+neev --enable-upload
 
 # Show hidden files
-karta --show-hidden
+neev --show-hidden
 
 # Combine flags
-karta --dir ./share --auth user:pass --enable-zip-download --port 8080
+neev --dir ./share --auth user:pass --enable-zip-download --port 8080
 ```
 
 ## CLI Flags
@@ -60,7 +60,7 @@ karta --dir ./share --auth user:pass --enable-zip-download --port 8080
 
 | Variable | Description |
 |----------|-------------|
-| `KARTA_AUTH` | Auth credentials (`user:pass`), alternative to `--auth` |
+| `NEEV_AUTH` | Auth credentials (`user:pass`), alternative to `--auth` |
 
 ## Key Concepts
 

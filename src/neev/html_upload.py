@@ -6,7 +6,7 @@ Builds form HTML injected into the directory listing page when
 
 import html
 
-from karta.html_upload_js import get_upload_script
+from neev.html_upload_js import get_upload_script
 
 
 # -- SVG icons ----------------------------------------------------------------

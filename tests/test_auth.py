@@ -1,9 +1,9 @@
-"""Unit tests for karta.auth — credential validation, session store, cookies."""
+"""Unit tests for neev.auth — credential validation, session store, cookies."""
 
 import base64
 from unittest.mock import patch
 
-from karta.auth import (
+from neev.auth import (
     TOKEN_TTL,
     SessionStore,
     check_basic_auth,
@@ -98,7 +98,7 @@ class TestSessionStore:
 
     def test_expired_token_rejected(self):
         store = SessionStore()
-        with patch("karta.auth.time") as mock_time:
+        with patch("neev.auth.time") as mock_time:
             mock_time.monotonic.return_value = 0.0
             token = store.create()
             mock_time.monotonic.return_value = TOKEN_TTL + 1
@@ -106,7 +106,7 @@ class TestSessionStore:
 
     def test_unexpired_token_accepted(self):
         store = SessionStore()
-        with patch("karta.auth.time") as mock_time:
+        with patch("neev.auth.time") as mock_time:
             mock_time.monotonic.return_value = 0.0
             token = store.create()
             mock_time.monotonic.return_value = TOKEN_TTL - 1
@@ -114,7 +114,7 @@ class TestSessionStore:
 
     def test_create_prunes_expired_tokens(self):
         store = SessionStore()
-        with patch("karta.auth.time") as mock_time:
+        with patch("neev.auth.time") as mock_time:
             mock_time.monotonic.return_value = 0.0
             old_token = store.create()
             mock_time.monotonic.return_value = TOKEN_TTL + 1
@@ -127,20 +127,20 @@ class TestSessionStore:
 
 class TestParseCookie:
     def test_single_cookie(self):
-        assert parse_cookie("karta_session=abc123", "karta_session") == "abc123"
+        assert parse_cookie("neev_session=abc123", "neev_session") == "abc123"
 
     def test_multiple_cookies(self):
-        header = "foo=bar; karta_session=abc123; baz=qux"
-        assert parse_cookie(header, "karta_session") == "abc123"
+        header = "foo=bar; neev_session=abc123; baz=qux"
+        assert parse_cookie(header, "neev_session") == "abc123"
 
     def test_missing_cookie(self):
-        assert parse_cookie("foo=bar", "karta_session") is None
+        assert parse_cookie("foo=bar", "neev_session") is None
 
     def test_none_header(self):
-        assert parse_cookie(None, "karta_session") is None
+        assert parse_cookie(None, "neev_session") is None
 
     def test_empty_header(self):
-        assert parse_cookie("", "karta_session") is None
+        assert parse_cookie("", "neev_session") is None
 
     def test_no_equals(self):
-        assert parse_cookie("malformed", "karta_session") is None
+        assert parse_cookie("malformed", "neev_session") is None

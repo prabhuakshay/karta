@@ -1,4 +1,4 @@
-"""File upload handling for karta.
+"""File upload handling for neev.
 
 Provides multipart form data parsing (stdlib-only, no ``cgi`` module),
 filename sanitization, size validation, and folder creation.

@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from karta.cli import (
+from neev.cli import (
     _build_parser,
     _off,
     _on,
@@ -18,7 +18,7 @@ from karta.cli import (
     build_config,
     main,
 )
-from karta.config import Config
+from neev.config import Config
 
 
 # -- ANSI styling helpers ---------------------------------------------------
@@ -95,17 +95,17 @@ class TestResolveAuth:
 
     def test_flag_takes_precedence_over_env(self):
         args = argparse.Namespace(auth="cli:pass")
-        with patch.dict("os.environ", {"KARTA_AUTH": "env:pass"}):
+        with patch.dict("os.environ", {"NEEV_AUTH": "env:pass"}):
             assert _resolve_auth(args) == ("cli", "pass")
 
     def test_env_var_fallback(self):
         args = argparse.Namespace(auth=None)
-        with patch.dict("os.environ", {"KARTA_AUTH": "envuser:envpass"}):
+        with patch.dict("os.environ", {"NEEV_AUTH": "envuser:envpass"}):
             assert _resolve_auth(args) == ("envuser", "envpass")
 
     def test_empty_env_var_returns_none(self):
         args = argparse.Namespace(auth=None)
-        with patch.dict("os.environ", {"KARTA_AUTH": ""}):
+        with patch.dict("os.environ", {"NEEV_AUTH": ""}):
             assert _resolve_auth(args) == (None, None)
 
 
@@ -317,7 +317,7 @@ class TestBuildConfig:
     def test_auth_from_env(self, tmp_path):
         parser = _build_parser()
         args = parser.parse_args([str(tmp_path)])
-        with patch.dict("os.environ", {"KARTA_AUTH": "envuser:envpass"}):
+        with patch.dict("os.environ", {"NEEV_AUTH": "envuser:envpass"}):
             config = build_config(args)
         assert config.username == "envuser"
         assert config.password == "envpass"
@@ -329,9 +329,9 @@ class TestBuildConfig:
 class TestMain:
     def test_main_runs(self, tmp_path, capsys):
         with (
-            patch("sys.argv", ["karta", str(tmp_path)]),
+            patch("sys.argv", ["neev", str(tmp_path)]),
             patch.dict("os.environ", {}, clear=True),
-            patch("karta.cli.run_server") as mock_server,
+            patch("neev.cli.run_server") as mock_server,
         ):
             main()
         output = capsys.readouterr().out

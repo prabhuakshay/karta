@@ -1,14 +1,14 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
-from karta.fs import FileEntry
-from karta.html import (
+from neev.fs import FileEntry
+from neev.html import (
     _build_breadcrumbs,
     _build_summary,
     _parent_link,
     render_directory_listing,
 )
-from karta.html_entries import (
+from neev.html_entries import (
     _ext_badge,
     entry_href,
     format_date,
@@ -16,7 +16,7 @@ from karta.html_entries import (
     render_entry_card,
     render_entry_row,
 )
-from karta.html_icons import icon_for_entry
+from neev.html_icons import icon_for_entry
 
 
 # -- Fixtures ----------------------------------------------------------------
@@ -190,7 +190,7 @@ class TestRenderDirectoryListing:
         assert "<!DOCTYPE html>" in page
         assert "docs" in page
         assert "readme.md" in page
-        assert "karta.css" in page
+        assert "neev.css" in page
         assert "alpine.min.js" in page
 
     def test_subdirectory_has_parent_link(self, tmp_path):
