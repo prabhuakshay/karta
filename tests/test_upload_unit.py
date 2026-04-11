@@ -131,6 +131,10 @@ class TestSanitizeFilename:
     def test_strips_whitespace(self):
         assert sanitize_filename("  test.txt  ") == "test.txt"
 
+    def test_rejects_null_byte(self):
+        with pytest.raises(UploadError, match="null byte"):
+            sanitize_filename("file\x00.txt")
+
 
 class TestSanitizeRelativePath:
     def test_preserves_structure(self):
