@@ -7,7 +7,7 @@ from urllib.request import Request, urlopen
 
 import pytest
 
-from neev.auth import SessionStore
+from neev.auth import LoginRateLimiter, SessionStore
 from neev.config import Config
 from neev.server import NeevHandler
 
@@ -48,7 +48,7 @@ def config(serve_dir):
 def server(config):
     """Start a real HTTP server on a random port, yield base URL, shut down after."""
     sessions = SessionStore()
-    handler = partial(NeevHandler, config, sessions)
+    handler = partial(NeevHandler, config, sessions, LoginRateLimiter())
     httpd = HTTPServer(("127.0.0.1", 0), handler)
     port = httpd.server_address[1]
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
