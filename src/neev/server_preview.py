@@ -4,6 +4,7 @@ Serves HTML preview pages for markdown, images, text/code, PDF, and media files.
 """
 
 import html
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -38,9 +39,11 @@ def serve_markdown_preview(
         request_path: The original URL path from the request.
     """
     filename = html.escape(path.name)
-    raw_url = html.escape(request_path.rstrip("/") + "?download")
+    raw_path = request_path.rstrip("/") + "?download"
+    raw_url = html.escape(raw_path)
+    raw_url_js = json.dumps(raw_path)
     parent = _parent_url(request_path)
-    page = render_markdown_preview(filename, raw_url, parent)
+    page = render_markdown_preview(filename, raw_url, raw_url_js, parent)
     body = page.encode()
     handler.send_response(200)
     handler.send_header("Content-Type", "text/html; charset=utf-8")
@@ -64,8 +67,9 @@ def serve_generic_preview(
         mime_type: The detected MIME type of the file.
     """
     filename = html.escape(path.name)
-    raw_url = html.escape(request_path.rstrip("/"))
-    download_url = html.escape(request_path.rstrip("/") + "?download")
+    raw_path = request_path.rstrip("/")
+    raw_url = html.escape(raw_path)
+    download_url = html.escape(raw_path + "?download")
     parent = _parent_url(request_path)
 
     if mime_type.startswith("image/"):
@@ -75,7 +79,8 @@ def serve_generic_preview(
     elif mime_type.startswith(("video/", "audio/")):
         page = render_media_preview(filename, raw_url, parent, download_url, mime_type)
     else:
-        page = render_text_preview(filename, raw_url, parent, download_url)
+        raw_url_js = json.dumps(raw_path)
+        page = render_text_preview(filename, raw_url_js, parent, download_url)
 
     body = page.encode()
     handler.send_response(200)
