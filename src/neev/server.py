@@ -71,10 +71,6 @@ class NeevHandler(BaseHTTPRequestHandler):
 
     # -- Auth ----------------------------------------------------------------
 
-    def _auth_enabled(self) -> bool:
-        """Check whether auth is configured."""
-        return self.config.username is not None and self.config.password is not None
-
     def _is_authenticated(self) -> bool:
         """Check if the request has valid credentials via session or header.
 
@@ -154,11 +150,11 @@ class NeevHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: PLR0911
         """Handle GET requests: auth pages, files, directories, static."""
-        if self._auth_enabled() and self.path == "/_neev/login":
+        if self.config.auth_enabled and self.path == "/_neev/login":
             self._serve_login_page()
             return
 
-        if self._auth_enabled() and self.path == "/_neev/logout":
+        if self.config.auth_enabled and self.path == "/_neev/logout":
             self._handle_logout()
             return
 
@@ -208,7 +204,7 @@ class NeevHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         """Handle POST requests: login, file uploads, folder creation."""
-        if self._auth_enabled() and self.path == "/_neev/login":
+        if self.config.auth_enabled and self.path == "/_neev/login":
             self._handle_login()
             return
 
@@ -266,7 +262,7 @@ class NeevHandler(BaseHTTPRequestHandler):
 
     def _cache_header(self) -> None:
         """Set Cache-Control: no-store when auth is enabled."""
-        if self._auth_enabled():
+        if self.config.auth_enabled:
             self.send_header("Cache-Control", "no-store")
 
     def _serve_file(self, path: Path, *, force_download: bool = False) -> None:
@@ -292,7 +288,7 @@ class NeevHandler(BaseHTTPRequestHandler):
             entries=entries,
             base_dir=self.config.directory,
             request_path=request_path,
-            auth_enabled=self._auth_enabled(),
+            auth_enabled=self.config.auth_enabled,
             enable_zip_download=self.config.enable_zip_download,
             enable_upload=self.config.enable_upload,
             banner=self.config.banner,
