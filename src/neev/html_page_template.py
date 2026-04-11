@@ -40,7 +40,6 @@ PAGE_TEMPLATE = """\
           whitespace-nowrap hidden sm:block">
           {summary}
         </span>
-        {zip_html}
         {logout_html}
       </div>
     </div>
@@ -69,25 +68,29 @@ PAGE_TEMPLATE = """\
       }});
     ">
 
-    <div class="relative mb-4">
-      <svg class="absolute left-3.5 top-1/2
-        -translate-y-1/2 w-4 h-4 text-ink-300
-        pointer-events-none" fill="none"
-        stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round"
-          stroke-linejoin="round" stroke-width="2"
-          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-      </svg>
-      <input x-model="filter" type="text"
-        placeholder="Filter&hellip;"
-        class="w-full sm:w-72 pl-10 pr-4 py-2.5
-          bg-surface-2 border border-surface-3
-          rounded-md text-sm text-ink-700
-          placeholder:text-ink-300
-          hover:border-surface-4
-          focus:border-sage-400 focus:bg-surface-1
-          focus:ring-2 focus:ring-sage-50
-          transition-colors duration-150">
+    <div class="flex items-center justify-between gap-3
+      mb-4">
+      <div class="relative">
+        <svg class="absolute left-3.5 top-1/2
+          -translate-y-1/2 w-4 h-4 text-ink-300
+          pointer-events-none" fill="none"
+          stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round"
+            stroke-linejoin="round" stroke-width="2"
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input x-model="filter" type="text"
+          placeholder="Filter&hellip;"
+          class="w-full sm:w-72 pl-10 pr-4 py-2.5
+            bg-surface-2 border border-surface-3
+            rounded-md text-sm text-ink-700
+            placeholder:text-ink-300
+            hover:border-surface-4
+            focus:border-sage-400 focus:bg-surface-1
+            focus:ring-2 focus:ring-sage-50
+            transition-colors duration-150">
+      </div>
+      {zip_html}
     </div>
 
     <div class="hidden sm:block bg-surface-1

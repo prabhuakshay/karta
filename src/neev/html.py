@@ -199,9 +199,16 @@ def render_directory_listing(
         raw = request_path.rstrip("/") + "/?zip" if request_path != "/" else "/?zip"
         zip_href = html.escape(raw)
         zip_html = (
-            f'<a href="{zip_href}" class="text-xs text-ink-400'
-            " hover:text-sage-500 transition-colors duration-150"
-            ' whitespace-nowrap ml-4" title="Download as ZIP">'
+            f'<a href="{zip_href}" class="inline-flex items-center gap-2'
+            " px-3.5 py-2 bg-surface-1 text-ink-700 text-sm font-semibold"
+            " rounded-lg border border-surface-3 hover:bg-surface-2"
+            " active:bg-surface-3 transition-colors duration-150"
+            ' whitespace-nowrap" title="Download as ZIP">'
+            '<svg class="w-4 h-4" fill="none" stroke="currentColor"'
+            ' viewBox="0 0 24 24"><path stroke-linecap="round"'
+            ' stroke-linejoin="round" stroke-width="2"'
+            ' d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4 M7 10l5 5'
+            ' 5-5 M12 15V3"/></svg>'
             "Download ZIP</a>"
         )
 
