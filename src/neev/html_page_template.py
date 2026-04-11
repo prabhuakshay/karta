@@ -47,8 +47,15 @@ PAGE_TEMPLATE = """\
 
   <main class="max-w-5xl mx-auto w-full px-4 sm:px-6
     lg:px-8 py-5 flex-1"
-    x-data="{{ filter: '' }}"
+    x-data="{{ filter: '', downloadMode: localStorage.getItem('neev-download-mode') === 'true' }}"
     x-effect="
+      localStorage.setItem('neev-download-mode', downloadMode);
+      $el.querySelectorAll('.file-link').forEach(a => {{
+        const base = a.getAttribute('data-href');
+        if (!base) return;
+        const preview = a.getAttribute('data-preview-href');
+        a.href = downloadMode ? base + '?download' : (preview || base);
+      }});
       const f = filter.toLowerCase();
       $el.querySelectorAll('tbody tr').forEach(r => {{
         const n = r.querySelector('.truncate');
@@ -90,7 +97,45 @@ PAGE_TEMPLATE = """\
             focus:ring-2 focus:ring-sage-50
             transition-colors duration-150">
       </div>
-      {zip_html}
+      <div class="flex items-center gap-2">
+        <button @click="downloadMode = !downloadMode"
+          class="inline-flex items-center gap-2
+            px-3.5 py-2 bg-surface-1 text-ink-700 text-sm
+            font-semibold rounded-lg border border-surface-3
+            hover:bg-surface-2 active:bg-surface-3
+            transition-colors duration-150 whitespace-nowrap"
+          :title="downloadMode
+            ? 'Switch to preview mode'
+            : 'Switch to download mode'">
+          <template x-if="!downloadMode">
+            <svg class="w-4 h-4" fill="none"
+              stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round"
+                stroke-linejoin="round" stroke-width="2"
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round"
+                stroke-linejoin="round" stroke-width="2"
+                d="M2.458 12C3.732 7.943 7.523 5 12 5
+                  c4.478 0 8.268 2.943 9.542 7
+                  -1.274 4.057-5.064 7-9.542 7
+                  -4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+          </template>
+          <template x-if="downloadMode">
+            <svg class="w-4 h-4" fill="none"
+              stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round"
+                stroke-linejoin="round" stroke-width="2"
+                d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4
+                  M7 10l5 5 5-5 M12 15V3"/>
+            </svg>
+          </template>
+          <span x-text="downloadMode
+            ? 'Download' : 'Preview'"
+            class="hidden sm:inline"></span>
+        </button>
+        {zip_html}
+      </div>
     </div>
 
     <div class="hidden sm:block bg-surface-1

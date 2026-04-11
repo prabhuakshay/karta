@@ -9,7 +9,7 @@ import html
 from pathlib import PurePosixPath
 from urllib.parse import quote
 
-from neev.fs import FileEntry
+from neev.fs import FileEntry, is_markdown_file
 from neev.html_icons import icon_for_entry
 
 
@@ -82,6 +82,27 @@ def _ext_badge(name: str) -> str:
     )
 
 
+def _file_data_attrs(entry: FileEntry, href: str) -> str:
+    """Build extra HTML attributes for file entry links.
+
+    Adds ``data-href`` for all files (used by the download-mode toggle)
+    and ``data-preview-href`` for markdown files (used for rendered preview).
+
+    Args:
+        entry: The file entry.
+        href: The already-quoted href for this entry.
+
+    Returns:
+        A string of HTML attributes (with leading space), or empty for dirs.
+    """
+    if entry.is_dir:
+        return ""
+    preview = ""
+    if is_markdown_file(PurePosixPath(entry.name)):
+        preview = f' data-preview-href="{href}?preview"'
+    return f' data-href="{href}"{preview}'
+
+
 # -- Entry renderers ----------------------------------------------------------
 
 
@@ -103,11 +124,15 @@ def render_entry_row(entry: FileEntry, request_path: str) -> str:
     badge = "" if entry.is_dir else _ext_badge(entry.name)
     name_cls = "text-ink-800 font-medium" if entry.is_dir else "text-ink-700"
 
+    data_attrs = _file_data_attrs(entry, href)
+
     return (
         f'<tr class="group hover:bg-sage-50 '
         f'transition-colors duration-100">'
         f'<td class="px-4 py-3">'
-        f'<a href="{href}" class="flex items-center gap-3 '
+        f'<a href="{href}"{data_attrs}'
+        f' class="{"file-link " if not entry.is_dir else ""}'
+        f"flex items-center gap-3 "
         f"{name_cls} group-hover:text-sage-500 "
         f'transition-colors duration-150">'
         f"{icon_html}"
@@ -139,9 +164,12 @@ def render_entry_card(entry: FileEntry, request_path: str) -> str:
     date = format_date(entry)
     icon_html = icon_for_entry(entry.name, entry.is_dir)
     name_cls = "text-ink-800 font-medium" if entry.is_dir else "text-ink-700"
+    data_attrs = _file_data_attrs(entry, href)
 
     return (
-        f'<a href="{href}" class="flex items-center gap-3 '
+        f'<a href="{href}"{data_attrs}'
+        f' class="{"file-link " if not entry.is_dir else ""}'
+        f"flex items-center gap-3 "
         f"px-4 py-3.5 hover:bg-sage-50 "
         f'transition-colors duration-100">'
         f"{icon_html}"

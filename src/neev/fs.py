@@ -9,7 +9,7 @@ import mimetypes
 import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 
 logger = logging.getLogger(__name__)
@@ -69,6 +69,39 @@ def get_mime_type(path: Path) -> str:
     """
     content_type, _ = mimetypes.guess_type(str(path))
     return content_type or "application/octet-stream"
+
+
+_PREVIEWABLE_PREFIXES = ("text/", "image/", "video/", "audio/")
+_PREVIEWABLE_TYPES = {"application/pdf", "application/json"}
+
+
+def is_previewable_type(mime_type: str) -> bool:
+    """Check whether a MIME type is safe for inline browser display.
+
+    Args:
+        mime_type: A MIME type string (e.g. ``image/png``).
+
+    Returns:
+        ``True`` if browsers can typically render the type inline.
+    """
+    if mime_type in _PREVIEWABLE_TYPES:
+        return True
+    return mime_type.startswith(_PREVIEWABLE_PREFIXES)
+
+
+_MARKDOWN_EXTENSIONS = {".md", ".markdown", ".mdown", ".mkd", ".mkdn"}
+
+
+def is_markdown_file(path: Path | PurePosixPath) -> bool:
+    """Check whether a file path has a markdown extension.
+
+    Args:
+        path: Path to check (only the suffix is inspected).
+
+    Returns:
+        ``True`` if the file extension is a known markdown variant.
+    """
+    return path.suffix.lower() in _MARKDOWN_EXTENSIONS
 
 
 def list_directory(path: Path, show_hidden: bool) -> list[FileEntry]:

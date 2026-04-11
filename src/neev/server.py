@@ -1,5 +1,6 @@
 """HTTP server and request handler for neev."""
 
+import html as html_mod
 import re
 import shutil
 import sys
@@ -16,8 +17,15 @@ from neev.auth import (
     parse_cookie,
 )
 from neev.config import Config
-from neev.fs import get_mime_type, list_directory, resolve_safe_path
+from neev.fs import (
+    get_mime_type,
+    is_markdown_file,
+    is_previewable_type,
+    list_directory,
+    resolve_safe_path,
+)
 from neev.html import render_directory_listing
+from neev.html_markdown import render_markdown_preview
 from neev.log import log_styled, status_color
 from neev.server_assets import serve_favicon, serve_static
 from neev.server_auth import handle_login, handle_logout, serve_login_page
@@ -152,7 +160,12 @@ class NeevHandler(BaseHTTPRequestHandler):
             self._serve_directory(request_path, resolved)
             return
 
-        self._serve_file(resolved)
+        query = parse_qs(parsed.query)
+        if "preview" in query and is_markdown_file(resolved):
+            self._serve_markdown_preview(resolved, request_path)
+            return
+
+        self._serve_file(resolved, force_download="download" in query)
 
     def do_POST(self) -> None:
         """Handle POST requests: login, file uploads, folder creation."""
@@ -210,15 +223,38 @@ class NeevHandler(BaseHTTPRequestHandler):
         if self._auth_enabled():
             self.send_header("Cache-Control", "no-store")
 
-    def _serve_file(self, path: Path) -> None:
+    def _serve_file(self, path: Path, *, force_download: bool = False) -> None:
         """Stream a file to the client in 64 KB chunks, keeping memory flat."""
+        mime_type = get_mime_type(path)
+        if force_download or not is_previewable_type(mime_type):
+            disposition = f'attachment; filename="{path.name}"'
+        else:
+            disposition = f'inline; filename="{path.name}"'
+
         self.send_response(200)
-        self.send_header("Content-Type", get_mime_type(path))
+        self.send_header("Content-Type", mime_type)
+        self.send_header("Content-Disposition", disposition)
         self.send_header("Content-Length", str(path.stat().st_size))
         self._cache_header()
         self.end_headers()
         with path.open("rb") as f:
             shutil.copyfileobj(f, self.wfile, length=65536)
+
+    def _serve_markdown_preview(self, path: Path, request_path: str) -> None:
+        """Serve an HTML page that renders a markdown file client-side."""
+        filename = html_mod.escape(path.name)
+        raw_url = html_mod.escape(request_path.rstrip("/") + "?download")
+        parent_url = html_mod.escape(
+            request_path.rsplit("/", maxsplit=1)[0] + "/" if "/" in request_path else "/"
+        )
+        page = render_markdown_preview(filename, raw_url, parent_url)
+        body = page.encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self._cache_header()
+        self.end_headers()
+        self.wfile.write(body)
 
     def _serve_directory(self, request_path: str, resolved: Path) -> None:
         """Serve an HTML directory listing."""
