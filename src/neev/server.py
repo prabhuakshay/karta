@@ -110,6 +110,36 @@ class NeevHandler(BaseHTTPRequestHandler):
         self._redirect("/_neev/login")
         return False
 
+    def _check_origin(self) -> bool:
+        """Reject cross-origin POST requests (CSRF defense).
+
+        Compares the Origin (or Referer) header against the Host header.
+        Requests with no Origin/Referer are allowed — they come from
+        curl/API clients, not browsers.
+
+        Returns:
+            ``True`` if the request may proceed, ``False`` if blocked.
+        """
+        origin = self.headers.get("Origin")
+        if origin is None:
+            referer = self.headers.get("Referer")
+            if referer is None:
+                return True
+            origin = referer.split("/")[0] + "//" + referer.split("/")[2]
+
+        host = self.headers.get("Host", "")
+        origin_host = origin.split("//", 1)[-1].rstrip("/")
+        if origin_host == host:
+            return True
+
+        body = b"403 Forbidden - origin mismatch"
+        self.send_response(403)
+        self.send_header("Content-Type", "text/plain")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+        return False
+
     def _send_401(self) -> None:
         """Send a 401 for API/curl clients using the Authorization header."""
         body = b"401 Unauthorized"
@@ -183,6 +213,9 @@ class NeevHandler(BaseHTTPRequestHandler):
             return
 
         if not self._check_auth():
+            return
+
+        if not self._check_origin():
             return
 
         parsed = urlparse(self.path)
