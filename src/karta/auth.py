@@ -4,9 +4,13 @@ import base64
 import hmac
 import logging
 import secrets
+import time
 
 
 logger = logging.getLogger(__name__)
+
+# Sessions older than this are considered expired and will be pruned.
+TOKEN_TTL = 86400  # 24 hours in seconds
 
 COOKIE_NAME = "karta_session"
 
@@ -95,36 +99,45 @@ def check_credentials(
 
 
 class SessionStore:
-    """In-memory session token store.
+    """In-memory session token store with TTL-based expiry.
 
-    Sessions persist until the server process exits. Tokens are generated
-    with ``secrets.token_urlsafe()`` for cryptographic randomness.
+    Each token is stored alongside its creation timestamp. Expired tokens are
+    pruned on every ``create()`` call. ``validate()`` also rejects tokens that
+    have exceeded ``TOKEN_TTL`` without waiting for the next prune sweep.
+
+    Tokens are generated with ``secrets.token_urlsafe()`` for cryptographic
+    randomness.
     """
 
     def __init__(self) -> None:
         """Initialize an empty session store."""
-        self._tokens: set[str] = set()
+        # Maps token → monotonic creation timestamp.
+        self._tokens: dict[str, float] = {}
 
     def create(self) -> str:
-        """Create a new session token.
+        """Create a new session token, pruning expired tokens first.
 
         Returns:
             A cryptographically random URL-safe token.
         """
+        self._prune()
         token = secrets.token_urlsafe(32)
-        self._tokens.add(token)
+        self._tokens[token] = time.monotonic()
         return token
 
     def validate(self, token: str) -> bool:
-        """Check whether a session token is valid.
+        """Check whether a session token is valid and unexpired.
 
         Args:
             token: The token to validate.
 
         Returns:
-            ``True`` if the token exists in the store.
+            ``True`` if the token exists and has not exceeded ``TOKEN_TTL``.
         """
-        return token in self._tokens
+        created_at = self._tokens.get(token)
+        if created_at is None:
+            return False
+        return (time.monotonic() - created_at) < TOKEN_TTL
 
     def invalidate(self, token: str) -> None:
         """Remove a session token.
@@ -132,7 +145,16 @@ class SessionStore:
         Args:
             token: The token to invalidate.
         """
-        self._tokens.discard(token)
+        self._tokens.pop(token, None)
+
+    def _prune(self) -> None:
+        """Remove all tokens that have exceeded ``TOKEN_TTL``."""
+        now = time.monotonic()
+        expired = [t for t, ts in self._tokens.items() if (now - ts) >= TOKEN_TTL]
+        for token in expired:
+            del self._tokens[token]
+        if expired:
+            logger.debug("Pruned %d expired session token(s)", len(expired))
 
 
 # -- Cookie helpers ----------------------------------------------------------
