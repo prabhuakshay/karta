@@ -228,11 +228,11 @@ def _svg(inner: str, color: str, *, fill: bool = False) -> str:
     """Wrap SVG path content in a complete SVG element."""
     if fill:
         return (
-            f'<svg class="w-5 h-5 {color} shrink-0" '
+            f'<svg class="w-5 h-5 {color} shrink-0" aria-hidden="true" '
             f'fill="currentColor" viewBox="0 0 24 24">{inner}</svg>'
         )
     return (
-        f'<svg class="w-5 h-5 {color} shrink-0" fill="none" '
+        f'<svg class="w-5 h-5 {color} shrink-0" aria-hidden="true" fill="none" '
         f'stroke="currentColor" stroke-width="2" '
         f'stroke-linecap="round" stroke-linejoin="round" '
         f'viewBox="0 0 24 24">{inner}</svg>'

@@ -41,20 +41,24 @@ def resolve_safe_path(base_dir: Path, request_path: str) -> Path | None:
     then verifies the result is inside base_dir. Returns ``None`` if the
     path escapes the served directory.
 
+    ``base_dir`` is expected to be already resolved to its real path (done
+    once at startup by ``Config.__post_init__``).
+
     Args:
-        base_dir: The root directory being served (must be absolute).
+        base_dir: The root directory being served (must be absolute and
+            already realpath-resolved).
         request_path: The URL-decoded path from the HTTP request.
 
     Returns:
         The resolved path if it is within base_dir, or ``None`` if it escapes.
     """
-    real_base = os.path.realpath(base_dir)
-    joined = os.path.join(real_base, request_path.lstrip("/"))
+    base = str(base_dir)
+    joined = os.path.join(base, request_path.lstrip("/"))
     real_path = os.path.realpath(joined)
 
-    if real_path == real_base:
+    if real_path == base:
         return Path(real_path)
-    if not real_path.startswith(real_base + os.sep):
+    if not real_path.startswith(base + os.sep):
         return None
     return Path(real_path)
 

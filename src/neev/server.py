@@ -1,11 +1,8 @@
 """HTTP server and request handler for neev."""
 
-import os
-import shutil
 import sys
 from functools import partial
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -17,22 +14,14 @@ from neev.auth import (
     parse_cookie,
 )
 from neev.config import Config
-from neev.fs import (
-    format_content_disposition,
-    get_mime_type,
-    is_markdown_file,
-    is_previewable_type,
-    list_directory,
-    resolve_safe_path,
-)
-from neev.html import render_directory_listing
+from neev.fs import get_mime_type, is_markdown_file, is_previewable_type, resolve_safe_path
 from neev.log import log_styled, status_color
 from neev.server_assets import serve_favicon, serve_static
 from neev.server_auth import handle_login, handle_logout, serve_login_page
+from neev.server_core import serve_directory, serve_file, serve_zip
 from neev.server_preview import serve_generic_preview, serve_markdown_preview
 from neev.server_upload import serve_mkdir, serve_upload
 from neev.server_zip import serve_selective_zip
-from neev.zip import ZipSizeLimitError, create_zip_stream
 
 
 # -- Request handler -------------------------------------------------------
@@ -71,10 +60,6 @@ class NeevHandler(BaseHTTPRequestHandler):
         super().__init__(request, client_address, server)
 
     # -- Auth ----------------------------------------------------------------
-
-    def _auth_enabled(self) -> bool:
-        """Check whether auth is configured."""
-        return self.config.username is not None and self.config.password is not None
 
     def _is_authenticated(self) -> bool:
         """Check if the request has valid credentials via session or header.
@@ -155,11 +140,11 @@ class NeevHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: PLR0911
         """Handle GET requests: auth pages, files, directories, static."""
-        if self._auth_enabled() and self.path == "/_neev/login":
+        if self.config.auth_enabled and self.path == "/_neev/login":
             self._serve_login_page()
             return
 
-        if self._auth_enabled() and self.path == "/_neev/logout":
+        if self.config.auth_enabled and self.path == "/_neev/logout":
             self._handle_logout()
             return
 
@@ -187,12 +172,14 @@ class NeevHandler(BaseHTTPRequestHandler):
             self._send_error(404, "Not Found")
             return
 
+        auth = self.config.auth_enabled
+
         if resolved.is_dir() and wants_zip:
-            self._serve_zip(resolved)
+            serve_zip(self, self.config, resolved, auth_enabled=auth)
             return
 
         if resolved.is_dir():
-            self._serve_directory(request_path, resolved)
+            serve_directory(self, self.config, request_path, resolved, auth_enabled=auth)
             return
 
         if parsed.query == "preview" and is_markdown_file(resolved):
@@ -205,11 +192,11 @@ class NeevHandler(BaseHTTPRequestHandler):
                 serve_generic_preview(self, resolved, request_path, mime)
                 return
 
-        self._serve_file(resolved, force_download=parsed.query == "download")
+        serve_file(self, resolved, force_download=parsed.query == "download", auth_enabled=auth)
 
     def do_POST(self) -> None:
         """Handle POST requests: login, file uploads, folder creation."""
-        if self._auth_enabled() and self.path == "/_neev/login":
+        if self.config.auth_enabled and self.path == "/_neev/login":
             self._handle_login()
             return
 
@@ -267,88 +254,8 @@ class NeevHandler(BaseHTTPRequestHandler):
 
     def _cache_header(self) -> None:
         """Set Cache-Control: no-store when auth is enabled."""
-        if self._auth_enabled():
+        if self.config.auth_enabled:
             self.send_header("Cache-Control", "no-store")
-
-    def _serve_file(self, path: Path, *, force_download: bool = False) -> None:
-        """Stream a file to the client in 64 KB chunks, keeping memory flat."""
-        try:
-            f = path.open("rb")
-        except OSError:
-            self._send_error(404, "File not found")
-            return
-
-        try:
-            size = os.fstat(f.fileno()).st_size
-            mime_type = get_mime_type(path)
-            dtype = (
-                "attachment" if force_download or not is_previewable_type(mime_type) else "inline"
-            )
-            disposition = format_content_disposition(dtype, path.name)
-
-            self.send_response(200)
-            self.send_header("Content-Type", mime_type)
-            self.send_header("Content-Disposition", disposition)
-            self.send_header("Content-Length", str(size))
-            self._cache_header()
-            self.end_headers()
-            shutil.copyfileobj(f, self.wfile, length=65536)
-        finally:
-            f.close()
-
-    def _serve_directory(self, request_path: str, resolved: Path) -> None:
-        """Serve an HTML directory listing."""
-        entries = list_directory(resolved, self.config.show_hidden)
-        page = render_directory_listing(
-            path=resolved,
-            entries=entries,
-            base_dir=self.config.directory,
-            request_path=request_path,
-            auth_enabled=self._auth_enabled(),
-            enable_zip_download=self.config.enable_zip_download,
-            enable_upload=self.config.enable_upload,
-            banner=self.config.banner,
-        )
-        body = page.encode()
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self._cache_header()
-        self.end_headers()
-        self.wfile.write(body)
-
-    def _serve_zip(self, resolved: Path) -> None:
-        """Serve a ZIP archive of a directory's contents."""
-        if not self.config.enable_zip_download:
-            self._send_error(403, "ZIP downloads are disabled")
-            return
-
-        zip_name = (resolved.name or "root") + ".zip"
-        try:
-            stream = create_zip_stream(
-                directory=resolved,
-                base_dir=self.config.directory,
-                show_hidden=self.config.show_hidden,
-                max_size=self.config.max_zip_size,
-            )
-        except ZipSizeLimitError:
-            self._send_error(413, "ZIP archive too large")
-            return
-
-        # Compute size by seeking to end — avoids getvalue() second copy.
-        size = stream.seek(0, 2)
-        stream.seek(0)
-
-        self.send_response(200)
-        self.send_header("Content-Type", "application/zip")
-        self.send_header("Content-Length", str(size))
-        self.send_header(
-            "Content-Disposition",
-            format_content_disposition("attachment", zip_name),
-        )
-        self._cache_header()
-        self.end_headers()
-        shutil.copyfileobj(stream, self.wfile)
 
     def _send_error(self, code: int, message: str) -> None:
         """Send an error response with a plain-text body."""
