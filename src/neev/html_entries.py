@@ -171,7 +171,7 @@ def _js_escape(value: str) -> str:
     """Escape a string for safe use inside JavaScript single-quoted literals.
 
     Args:
-        value: The string to escape (already HTML-escaped).
+        value: The raw string to escape.
 
     Returns:
         String with backslashes and single quotes escaped.
@@ -179,24 +179,24 @@ def _js_escape(value: str) -> str:
     return value.replace("\\", "\\\\").replace("'", "\\'")
 
 
-def _entry_checkbox(name: str, js_name: str) -> str:
+def _entry_checkbox(html_name: str, js_name_attr: str) -> str:
     """Render a select-mode checkbox for a directory entry.
 
     Args:
-        name: HTML-escaped entry name (for value/data attributes).
-        js_name: JS-escaped entry name (for Alpine expressions).
+        html_name: HTML-escaped entry name (for value/data attributes).
+        js_name_attr: JS-escaped then HTML-escaped name (for Alpine attributes).
 
     Returns:
         HTML checkbox input string.
     """
     return (
-        f'<input type="checkbox" value="{name}"'
+        f'<input type="checkbox" value="{html_name}"'
         ' x-show="selectMode"'
-        f" @click.stop=\"toggleItem('{js_name}')\""
-        f" :checked=\"isSelected('{js_name}')\""
+        f" @click.stop=\"toggleItem('{js_name_attr}')\""
+        f" :checked=\"isSelected('{js_name_attr}')\""
         ' class="w-4 h-4 rounded border-surface-4'
         ' accent-sage-500 cursor-pointer shrink-0"'
-        f' data-entry-name="{name}">'
+        f' data-entry-name="{html_name}">'
     )
 
 
@@ -223,15 +223,15 @@ def render_entry_row(entry: FileEntry, request_path: str) -> str:
 
     data_attrs = _file_data_attrs(entry, href)
     copy_btn = "" if entry.is_dir else _copy_link_button(href)
-    js_name = _js_escape(name)
-    checkbox = _entry_checkbox(name, js_name)
+    js_name_attr = html.escape(_js_escape(entry.name))
+    checkbox = _entry_checkbox(name, js_name_attr)
 
     return (
         f'<tr class="group hover:bg-sage-50 '
         f'transition-colors duration-100"'
         f' @click="if (selectMode) {{ $event.preventDefault();'
-        f" toggleItem('{js_name}'); }}\""
-        f" :class=\"isSelected('{js_name}') ? 'bg-sage-50' : ''\">"
+        f" toggleItem('{js_name_attr}'); }}\""
+        f" :class=\"isSelected('{js_name_attr}') ? 'bg-sage-50' : ''\">"
         f'<td class="px-4 py-3">'
         f'<div class="flex items-center gap-3">'
         f"{checkbox}"
@@ -280,8 +280,8 @@ def render_entry_card(entry: FileEntry, request_path: str) -> str:
     copy_btn = _copy_link_button_mobile(href) if not entry.is_dir else ""
     trailing = copy_btn + chevron if copy_btn else chevron
 
-    js_name = _js_escape(name)
-    checkbox_mobile = _entry_checkbox(name, js_name)
+    js_name_attr = html.escape(_js_escape(entry.name))
+    checkbox_mobile = _entry_checkbox(name, js_name_attr)
 
     return (
         f'<a href="{href}"{data_attrs}'
@@ -290,8 +290,8 @@ def render_entry_card(entry: FileEntry, request_path: str) -> str:
         f"px-4 py-3.5 hover:bg-sage-50 "
         f'transition-colors duration-100"'
         f' @click="if (selectMode) {{ $event.preventDefault();'
-        f" toggleItem('{js_name}'); }}\""
-        f" :class=\"isSelected('{js_name}') ? 'bg-sage-50' : ''\">"
+        f" toggleItem('{js_name_attr}'); }}\""
+        f" :class=\"isSelected('{js_name_attr}') ? 'bg-sage-50' : ''\">"
         f"{checkbox_mobile}"
         f"{icon_html}"
         f'<div class="min-w-0 flex-1">'
