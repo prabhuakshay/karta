@@ -9,6 +9,7 @@ from pathlib import Path, PurePosixPath
 
 from karta.fs import FileEntry
 from karta.html_entries import render_entry_card, render_entry_row
+from karta.html_upload import render_upload_section
 
 
 # -- Navigation helpers -------------------------------------------------------
@@ -127,6 +128,7 @@ def render_directory_listing(
     request_path: str,
     auth_enabled: bool = False,
     enable_zip_download: bool = False,
+    enable_upload: bool = False,
 ) -> str:
     """Render a complete HTML page for a directory listing.
 
@@ -137,6 +139,7 @@ def render_directory_listing(
         request_path: The original URL path from the request.
         auth_enabled: Whether to show the logout button.
         enable_zip_download: Whether to show the ZIP download link.
+        enable_upload: Whether to show the upload and create-folder forms.
 
     Returns:
         Complete HTML page as a string.
@@ -209,6 +212,10 @@ def render_directory_listing(
             ' whitespace-nowrap ml-4" title="Sign out">Sign out</a>'
         )
 
+    upload_html = ""
+    if enable_upload:
+        upload_html = render_upload_section(request_path)
+
     return _PAGE_TEMPLATE.format(
         dir_name=dir_name,
         breadcrumb_html=breadcrumb_html,
@@ -218,6 +225,7 @@ def render_directory_listing(
         table_rows=table_rows,
         card_items=card_items,
         empty_state=empty_state,
+        upload_html=upload_html,
     )
 
 
@@ -340,6 +348,8 @@ _PAGE_TEMPLATE = """\
     </div>
 
     {empty_state}
+
+    {upload_html}
   </main>
 
   <footer class="max-w-5xl mx-auto w-full px-4 sm:px-6

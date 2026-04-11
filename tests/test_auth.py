@@ -354,6 +354,6 @@ class TestCurlAuth:
 
 
 class TestPostRouting:
-    def test_post_to_unknown_path_returns_405(self, auth_server):
+    def test_post_unauthenticated_redirects_to_login(self, auth_server):
         status, _, _ = _request(auth_server, "/some/path", method="POST")
-        assert status == 405
+        assert status == 303

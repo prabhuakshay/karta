@@ -1,6 +1,5 @@
 """HTTP server and request handler for karta."""
 
-import importlib.resources
 import sys
 from functools import partial
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -20,17 +19,9 @@ from karta.fs import list_directory, read_file, resolve_safe_path
 from karta.html import render_directory_listing
 from karta.html_login import render_login_page
 from karta.log import log_styled, status_color
+from karta.server_assets import serve_favicon, serve_static
+from karta.upload import MAX_UPLOAD_SIZE, UploadError, handle_create_folder, handle_upload
 from karta.zip import ZipSizeLimitError, create_zip_bytes
-
-
-# Inline SVG favicon — bold "K" on a teal circle
-_FAVICON_SVG = (
-    b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
-    b'<circle cx="32" cy="32" r="30" fill="#0d9488"/>'
-    b'<text x="32" y="44" font-family="sans-serif" font-size="36" '
-    b'font-weight="bold" fill="white" text-anchor="middle">K</text>'
-    b"</svg>"
-)
 
 
 # -- Request handler -------------------------------------------------------
@@ -132,11 +123,11 @@ class KartaHandler(BaseHTTPRequestHandler):
             return
 
         if self.path == "/favicon.ico":
-            self._serve_favicon()
+            serve_favicon(self)
             return
 
         if self.path.startswith("/_karta/static/"):
-            self._serve_static(self.path)
+            serve_static(self, self.path)
             return
 
         parsed = urlparse(self.path)
@@ -163,12 +154,23 @@ class KartaHandler(BaseHTTPRequestHandler):
         self._serve_file(resolved)
 
     def do_POST(self) -> None:
-        """Handle POST requests: login form submission."""
+        """Handle POST requests: login, file uploads, folder creation."""
         if self._auth_enabled() and self.path == "/_karta/login":
             self._handle_login()
             return
 
-        self._send_error(405, "Method Not Allowed")
+        if not self._check_auth():
+            return
+
+        parsed = urlparse(self.path)
+        request_path = unquote(parsed.path)
+        query = parse_qs(parsed.query)
+
+        if "mkdir" in query:
+            self._handle_mkdir(request_path, query)
+            return
+
+        self._handle_upload(request_path)
 
     # -- Auth pages ----------------------------------------------------------
 
@@ -224,6 +226,63 @@ class KartaHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
 
+    # -- Uploads -------------------------------------------------------------
+
+    def _handle_upload(self, request_path: str) -> None:
+        """Handle a file upload POST request."""
+        if not self.config.enable_upload:
+            self._send_error(403, "Uploads are disabled")
+            return
+
+        raw_length = self.headers.get("Content-Length")
+        if raw_length is None:
+            self._send_error(400, "Content-Length required")
+            return
+
+        content_length = int(raw_length)
+        if content_length > MAX_UPLOAD_SIZE:
+            self._send_error(413, "Upload too large")
+            return
+
+        content_type = self.headers.get("Content-Type", "")
+        resolved = resolve_safe_path(self.config.directory, request_path)
+        if resolved is None or not resolved.is_dir():
+            self._send_error(400, "Invalid upload target")
+            return
+
+        body = self.rfile.read(content_length)
+        try:
+            handle_upload(body, content_type, content_length, resolved, self.config.directory)
+        except UploadError as exc:
+            self._send_error(400, str(exc))
+            return
+
+        self._redirect(request_path)
+
+    def _handle_mkdir(self, request_path: str, query: dict[str, list[str]]) -> None:
+        """Handle a create-folder POST request."""
+        if not self.config.enable_upload:
+            self._send_error(403, "Uploads are disabled")
+            return
+
+        folder_name = query.get("mkdir", [""])[0]
+        if not folder_name:  # pragma: no cover — parse_qs drops blank values
+            self._send_error(400, "Folder name required")
+            return
+
+        resolved = resolve_safe_path(self.config.directory, request_path)
+        if resolved is None or not resolved.is_dir():
+            self._send_error(400, "Invalid target directory")
+            return
+
+        try:
+            handle_create_folder(folder_name, resolved, self.config.directory)
+        except UploadError as exc:
+            self._send_error(400, str(exc))
+            return
+
+        self._redirect(request_path)
+
     # -- Helpers -------------------------------------------------------------
 
     def _redirect(self, location: str) -> None:
@@ -232,12 +291,10 @@ class KartaHandler(BaseHTTPRequestHandler):
         self.send_header("Location", location)
         self.end_headers()
 
-    def _cache_header(self, public_max_age: str | None = None) -> None:
-        """Set Cache-Control: no-store when auth is on, else use the given policy."""
+    def _cache_header(self) -> None:
+        """Set Cache-Control: no-store when auth is enabled."""
         if self._auth_enabled():
             self.send_header("Cache-Control", "no-store")
-        elif public_max_age:
-            self.send_header("Cache-Control", f"public, max-age={public_max_age}")
 
     def _serve_file(self, path: Path) -> None:
         """Serve a file with correct Content-Type and Content-Length."""
@@ -259,6 +316,7 @@ class KartaHandler(BaseHTTPRequestHandler):
             request_path=request_path,
             auth_enabled=self._auth_enabled(),
             enable_zip_download=self.config.enable_zip_download,
+            enable_upload=self.config.enable_upload,
         )
         body = page.encode()
         self.send_response(200)
@@ -296,44 +354,6 @@ class KartaHandler(BaseHTTPRequestHandler):
         self._cache_header()
         self.end_headers()
         self.wfile.write(data)
-
-    def _serve_static(self, url_path: str) -> None:
-        """Serve bundled static assets from the karta package."""
-        filename = url_path.removeprefix("/_karta/static/")
-        if not filename or "/" in filename:
-            self._send_error(404, "Not Found")
-            return
-
-        mime_types = {
-            ".css": "text/css; charset=utf-8",
-            ".js": "application/javascript; charset=utf-8",
-        }
-
-        try:
-            ref = importlib.resources.files("karta").joinpath("static", filename)
-            content = ref.read_bytes()
-        except (FileNotFoundError, TypeError):
-            self._send_error(404, "Not Found")
-            return
-
-        suffix = Path(filename).suffix
-        content_type = mime_types.get(suffix, "application/octet-stream")
-
-        self.send_response(200)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(content)))
-        self._cache_header("86400")
-        self.end_headers()
-        self.wfile.write(content)
-
-    def _serve_favicon(self) -> None:
-        """Serve the embedded SVG favicon."""
-        self.send_response(200)
-        self.send_header("Content-Type", "image/svg+xml")
-        self.send_header("Content-Length", str(len(_FAVICON_SVG)))
-        self._cache_header("86400")
-        self.end_headers()
-        self.wfile.write(_FAVICON_SVG)
 
     def _send_error(self, code: int, message: str) -> None:
         """Send an error response with a plain-text body."""

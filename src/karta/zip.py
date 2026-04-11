@@ -57,7 +57,8 @@ def create_zip_bytes(
                     continue
                 full_path = Path(dirpath) / filename
 
-                if resolve_safe_path(base_dir, str(full_path.relative_to(base_dir))) is None:
+                safe = resolve_safe_path(base_dir, str(full_path.relative_to(base_dir)))
+                if safe is None:  # pragma: no cover
                     logger.warning("skipping path outside base dir: %s", full_path)
                     continue
 
