@@ -1,19 +1,21 @@
 """ANSI styling helpers for request logging."""
 
 import sys
+from typing import TextIO
 
 
-def log_styled(text: str, code: str) -> str:
-    """Wrap text in ANSI escape codes if stderr is a terminal.
+def ansi_styled(text: str, code: str, *, stream: TextIO = sys.stderr) -> str:
+    """Wrap text in ANSI escape codes if the stream is a terminal.
 
     Args:
         text: The string to style.
-        code: ANSI SGR code.
+        code: ANSI SGR code (e.g. ``"1"`` for bold, ``"32"`` for green).
+        stream: The output stream to check for TTY support.
 
     Returns:
-        The styled string, or the original text if stderr is not a terminal.
+        The styled string, or the original text if the stream is not a terminal.
     """
-    if not sys.stderr.isatty():
+    if not stream.isatty():
         return text
     return f"\033[{code}m{text}\033[0m"
 
@@ -29,7 +31,7 @@ def status_color(status: int) -> str:
     """
     text = str(status)
     if 200 <= status < 300:
-        return log_styled(text, "32")
+        return ansi_styled(text, "32")
     if 300 <= status < 400:
-        return log_styled(text, "33")
-    return log_styled(text, "31")
+        return ansi_styled(text, "33")
+    return ansi_styled(text, "31")

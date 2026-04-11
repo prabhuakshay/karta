@@ -8,6 +8,8 @@ import importlib.resources
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
+from neev.server_utils import send_error
+
 
 # Inline SVG favicon — bold "N" on a teal circle
 FAVICON_SVG = (
@@ -35,7 +37,7 @@ def serve_static(handler: BaseHTTPRequestHandler, url_path: str) -> None:
     """
     filename = url_path.removeprefix("/_neev/static/")
     if not filename or "/" in filename:
-        _send_error(handler, 404, "Not Found")
+        send_error(handler, 404, "Not Found")
         return
 
     try:
@@ -44,7 +46,7 @@ def serve_static(handler: BaseHTTPRequestHandler, url_path: str) -> None:
             _asset_cache[filename] = ref.read_bytes()
         content = _asset_cache[filename]
     except (FileNotFoundError, TypeError):
-        _send_error(handler, 404, "Not Found")
+        send_error(handler, 404, "Not Found")
         return
 
     suffix = Path(filename).suffix
@@ -70,19 +72,3 @@ def serve_favicon(handler: BaseHTTPRequestHandler) -> None:
     handler.send_header("Cache-Control", "public, max-age=86400")
     handler.end_headers()
     handler.wfile.write(FAVICON_SVG)
-
-
-def _send_error(handler: BaseHTTPRequestHandler, code: int, message: str) -> None:
-    """Send a plain-text error response.
-
-    Args:
-        handler: The active request handler.
-        code: HTTP status code.
-        message: Error message body.
-    """
-    body = message.encode()
-    handler.send_response(code)
-    handler.send_header("Content-Type", "text/plain; charset=utf-8")
-    handler.send_header("Content-Length", str(len(body)))
-    handler.end_headers()
-    handler.wfile.write(body)

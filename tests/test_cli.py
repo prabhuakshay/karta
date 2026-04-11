@@ -12,7 +12,6 @@ from neev.cli import (
     _print_error,
     _print_startup_banner,
     _resolve_auth,
-    _styled,
     _validate_directory,
     _validate_port,
 )
@@ -22,22 +21,14 @@ from neev.config import Config
 # -- ANSI styling helpers ---------------------------------------------------
 
 
-class TestStyled:
-    def test_returns_plain_text_when_not_tty(self):
-        with patch("sys.stdout.isatty", return_value=False):
-            assert _styled("hello", "1") == "hello"
-
-    def test_wraps_with_ansi_when_tty(self):
-        with patch("sys.stdout.isatty", return_value=True):
-            assert _styled("hello", "1") == "\033[1mhello\033[0m"
-
-    def test_on_delegates_to_styled(self):
+class TestStyleHelpers:
+    def test_on_delegates_to_ansi_styled(self):
         with patch("sys.stdout.isatty", return_value=True):
             result = _on("enabled")
             assert "\033[32m" in result
             assert "enabled" in result
 
-    def test_off_delegates_to_styled(self):
+    def test_off_delegates_to_ansi_styled(self):
         with patch("sys.stdout.isatty", return_value=True):
             result = _off("disabled")
             assert "\033[2m" in result

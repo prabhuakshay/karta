@@ -6,26 +6,9 @@ import sys
 from pathlib import Path
 
 from neev.config import Config
+from neev.log import ansi_styled
 from neev.server import run_server
 from neev.toml_config import load_toml, merge_toml_into_args
-
-
-# -- ANSI styling helpers --------------------------------------------------
-
-
-def _styled(text: str, code: str) -> str:
-    """Wrap text in ANSI escape codes, resetting after.
-
-    Args:
-        text: The string to style.
-        code: ANSI SGR code (e.g. ``"1"`` for bold, ``"32"`` for green).
-
-    Returns:
-        The styled string, or the original text if stdout is not a terminal.
-    """
-    if not sys.stdout.isatty():
-        return text
-    return f"\033[{code}m{text}\033[0m"
 
 
 def _print_error(message: str) -> None:
@@ -49,7 +32,7 @@ def _on(label: str) -> str:
     Returns:
         Green-styled text.
     """
-    return _styled(label, "32")
+    return ansi_styled(label, "32", stream=sys.stdout)
 
 
 def _off(label: str) -> str:
@@ -61,7 +44,7 @@ def _off(label: str) -> str:
     Returns:
         Dim-styled text.
     """
-    return _styled(label, "2")
+    return ansi_styled(label, "2", stream=sys.stdout)
 
 
 # -- Parsing and validation ------------------------------------------------
@@ -226,9 +209,9 @@ def _print_startup_banner(config: Config) -> None:
     Args:
         config: The resolved server configuration.
     """
-    url = _styled(f"http://{config.host}:{config.port}", "1;36")
-    directory = _styled(str(config.directory), "1")
-    serving = _styled("Serving", "1;36")
+    url = ansi_styled(f"http://{config.host}:{config.port}", "1;36", stream=sys.stdout)
+    directory = ansi_styled(str(config.directory), "1", stream=sys.stdout)
+    serving = ansi_styled("Serving", "1;36", stream=sys.stdout)
 
     auth_status = _on(f"enabled (user: {config.username})") if config.username else _off("disabled")
     upload_status = _on("enabled") if config.enable_upload else _off("disabled")
@@ -246,19 +229,19 @@ def _print_startup_banner(config: Config) -> None:
         print(f"  banner:        {_on(config.banner)}")
 
 
-def build_config(args: argparse.Namespace) -> Config:
+def build_config(args: argparse.Namespace, directory: Path) -> Config:
     """Resolve and validate parsed CLI arguments into a ``Config``.
 
-    Handles auth resolution (flag vs env var), directory validation,
-    and ``--read-only`` enforcement.
+    Handles auth resolution (flag vs env var) and ``--read-only``
+    enforcement. The directory must already be validated and resolved.
 
     Args:
         args: Parsed CLI arguments from argparse.
+        directory: The validated, resolved directory to serve.
 
     Returns:
         A frozen ``Config`` instance ready for use by the server.
     """
-    directory = _validate_directory(args.directory)
     username, password = _resolve_auth(args)
 
     if args.max_zip_size < 1:
@@ -291,6 +274,6 @@ def main() -> None:
     toml_data = load_toml(directory)
     if toml_data:
         merge_toml_into_args(args, toml_data, parser)
-    config = build_config(args)
+    config = build_config(args, directory)
     _print_startup_banner(config)
     run_server(config)

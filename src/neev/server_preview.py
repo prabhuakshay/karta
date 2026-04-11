@@ -8,7 +8,6 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from neev.fs import get_mime_type, is_previewable_type
 from neev.html_markdown import render_markdown_preview
 from neev.html_preview import (
     render_image_preview,
@@ -88,15 +87,3 @@ def serve_generic_preview(
     handler.send_header("Content-Length", str(len(body)))
     handler.end_headers()
     handler.wfile.write(body)
-
-
-def is_generic_previewable(path: Path) -> bool:
-    """Check whether a file should get a generic (non-markdown) preview.
-
-    Args:
-        path: Path to the file (only the name is used for MIME detection).
-
-    Returns:
-        ``True`` if the file's MIME type is previewable.
-    """
-    return is_previewable_type(get_mime_type(path))
