@@ -53,19 +53,18 @@ def resolve_safe_path(base_dir: Path, request_path: str) -> Path | None:
     return Path(real_path)
 
 
-def read_file(path: Path) -> tuple[bytes, str]:
-    """Read a file and guess its MIME type.
+def get_mime_type(path: Path) -> str:
+    """Guess the MIME type of a file from its name.
 
     Args:
-        path: Absolute path to the file to read.
+        path: Path to the file (need not exist; only the name is used).
 
     Returns:
-        A ``(content, content_type)`` tuple. Falls back to
-        ``application/octet-stream`` if the type cannot be guessed.
+        A MIME type string. Falls back to ``application/octet-stream`` if
+        the type cannot be guessed from the file extension.
     """
-    content = path.read_bytes()
     content_type, _ = mimetypes.guess_type(str(path))
-    return content, content_type or "application/octet-stream"
+    return content_type or "application/octet-stream"
 
 
 def list_directory(path: Path, show_hidden: bool) -> list[FileEntry]:
