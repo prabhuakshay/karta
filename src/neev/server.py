@@ -1,5 +1,6 @@
 """HTTP server and request handler for neev."""
 
+import os
 import shutil
 import sys
 from functools import partial
@@ -271,18 +272,29 @@ class NeevHandler(BaseHTTPRequestHandler):
 
     def _serve_file(self, path: Path, *, force_download: bool = False) -> None:
         """Stream a file to the client in 64 KB chunks, keeping memory flat."""
-        mime_type = get_mime_type(path)
-        dtype = "attachment" if force_download or not is_previewable_type(mime_type) else "inline"
-        disposition = format_content_disposition(dtype, path.name)
+        try:
+            f = path.open("rb")
+        except OSError:
+            self._send_error(404, "File not found")
+            return
 
-        self.send_response(200)
-        self.send_header("Content-Type", mime_type)
-        self.send_header("Content-Disposition", disposition)
-        self.send_header("Content-Length", str(path.stat().st_size))
-        self._cache_header()
-        self.end_headers()
-        with path.open("rb") as f:
+        try:
+            size = os.fstat(f.fileno()).st_size
+            mime_type = get_mime_type(path)
+            dtype = (
+                "attachment" if force_download or not is_previewable_type(mime_type) else "inline"
+            )
+            disposition = format_content_disposition(dtype, path.name)
+
+            self.send_response(200)
+            self.send_header("Content-Type", mime_type)
+            self.send_header("Content-Disposition", disposition)
+            self.send_header("Content-Length", str(size))
+            self._cache_header()
+            self.end_headers()
             shutil.copyfileobj(f, self.wfile, length=65536)
+        finally:
+            f.close()
 
     def _serve_directory(self, request_path: str, resolved: Path) -> None:
         """Serve an HTML directory listing."""
