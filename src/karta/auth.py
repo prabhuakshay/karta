@@ -43,7 +43,7 @@ def check_basic_auth(
 
     try:
         decoded = base64.b64decode(encoded).decode("utf-8")
-    except Exception:
+    except (ValueError, UnicodeDecodeError):
         logger.debug("Failed to decode Basic Auth credentials")
         return False
 
