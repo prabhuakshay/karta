@@ -139,7 +139,7 @@ class NeevHandler(BaseHTTPRequestHandler):
 
     # -- Routing -------------------------------------------------------------
 
-    def do_GET(self) -> None:  # noqa: PLR0911
+    def do_GET(self) -> None:  # noqa: PLR0911 -- router: each branch is a distinct route
         """Handle GET requests: auth pages, files, directories, static."""
         if self.config.auth_enabled and self.path == "/_neev/login":
             self._serve_login_page()

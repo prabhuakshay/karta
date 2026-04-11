@@ -8,6 +8,7 @@ import argparse
 import logging
 import tomllib
 from pathlib import Path
+from typing import Any
 
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ _KEY_MAP = {
 }
 
 
-def load_toml(directory: Path) -> dict:
+def load_toml(directory: Path) -> dict[str, Any]:
     """Load neev.toml from the given directory.
 
     Args:
@@ -50,7 +51,7 @@ def load_toml(directory: Path) -> dict:
 
 
 def merge_toml_into_args(
-    args: argparse.Namespace, toml_data: dict, parser: argparse.ArgumentParser
+    args: argparse.Namespace, toml_data: dict[str, Any], parser: argparse.ArgumentParser
 ) -> None:
     """Apply toml values to argparse namespace where CLI didn't override.
 
