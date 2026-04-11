@@ -160,12 +160,11 @@ class NeevHandler(BaseHTTPRequestHandler):
             self._serve_directory(request_path, resolved)
             return
 
-        query = parse_qs(parsed.query)
-        if "preview" in query and is_markdown_file(resolved):
+        if parsed.query == "preview" and is_markdown_file(resolved):
             self._serve_markdown_preview(resolved, request_path)
             return
 
-        self._serve_file(resolved, force_download="download" in query)
+        self._serve_file(resolved, force_download=parsed.query == "download")
 
     def do_POST(self) -> None:
         """Handle POST requests: login, file uploads, folder creation."""
