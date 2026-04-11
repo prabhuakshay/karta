@@ -13,15 +13,14 @@ from karta.auth import (
     COOKIE_NAME,
     SessionStore,
     check_basic_auth,
-    check_credentials,
     parse_cookie,
 )
 from karta.config import Config
 from karta.fs import get_mime_type, list_directory, resolve_safe_path
 from karta.html import render_directory_listing
-from karta.html_login import render_login_page
 from karta.log import log_styled, status_color
 from karta.server_assets import serve_favicon, serve_static
+from karta.server_auth import handle_login, handle_logout, serve_login_page
 from karta.server_upload import serve_mkdir, serve_upload
 from karta.zip import ZipSizeLimitError, create_zip_stream
 
@@ -178,58 +177,15 @@ class KartaHandler(BaseHTTPRequestHandler):
 
     def _serve_login_page(self, error: str | None = None) -> None:
         """Serve the login form page."""
-        body = render_login_page(error=error).encode()
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        self.wfile.write(body)
+        serve_login_page(self, error)
 
     def _handle_login(self) -> None:
         """Process a login form POST and set a session cookie on success."""
-        if self.config.username is None or self.config.password is None:  # pragma: no cover
-            return
-
-        content_length = int(self.headers.get("Content-Length", 0))
-        if content_length < 0 or content_length > 8192:
-            self._send_error(413, "Request too large")
-            return
-        raw_body = self.rfile.read(content_length).decode("utf-8")
-        params = parse_qs(raw_body)
-
-        username = params.get("username", [""])[0]
-        password = params.get("password", [""])[0]
-
-        if not check_credentials(username, password, self.config.username, self.config.password):
-            self._serve_login_page(error="Invalid username or password.")
-            return
-
-        token = self.sessions.create()
-        self.send_response(303)
-        self.send_header("Location", "/")
-        self.send_header(
-            "Set-Cookie",
-            f"{COOKIE_NAME}={token}; Path=/; HttpOnly; SameSite=Strict",
-        )
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
+        handle_login(self, self.config, self.sessions)
 
     def _handle_logout(self) -> None:
         """Invalidate the session and redirect to the login page."""
-        cookie_header = self.headers.get("Cookie")
-        token = parse_cookie(cookie_header, COOKIE_NAME)
-        if token:
-            self.sessions.invalidate(token)
-
-        self.send_response(303)
-        self.send_header("Location", "/_karta/login")
-        self.send_header(
-            "Set-Cookie",
-            f"{COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0",
-        )
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
+        handle_logout(self, self.sessions)
 
     # -- Uploads -------------------------------------------------------------
 

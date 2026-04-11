@@ -147,6 +147,16 @@ class TestLoginFlow:
         assert status == 200
         assert b"Invalid username or password" in resp_body
 
+    def test_oversized_login_body_returns_413(self, auth_server):
+        status, _, _ = _request(
+            auth_server,
+            "/_karta/login",
+            method="POST",
+            body=b"x" * 8193,
+            content_type="application/x-www-form-urlencoded",
+        )
+        assert status == 413
+
     def test_session_cookie_grants_access(self, auth_server):
         body = urlencode({"username": "alice", "password": "secret"}).encode()
         _, headers, _ = _request(
