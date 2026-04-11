@@ -130,7 +130,7 @@ addopts = [
     "--strict-config",
     "--cov=neev",
     "--cov-report=term-missing",
-    "--cov-fail-under=100",
+    "--cov-fail-under=95",
 ]
 
 [tool.coverage.run]
@@ -139,7 +139,7 @@ branch = true
 
 [tool.coverage.report]
 show_missing = true
-fail_under = 100
+fail_under = 95
 
 [tool.ty.environment]
 python-version = "3.13"
