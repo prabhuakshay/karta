@@ -5,6 +5,9 @@
 @source "../html_icons.py";
 @source "../html_upload.py";
 @source "../html_upload_js.py";
+@source "../html_markdown.py";
+@source "../html_markdown_assets.py";
+@source "../html_page_template.py";
 
 @theme {
   --color-surface-0: #EFEBE4;

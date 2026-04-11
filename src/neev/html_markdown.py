@@ -127,8 +127,9 @@ def render_markdown_preview(filename: str, raw_url: str, parent_url: str) -> str
     Returns:
         Complete HTML page as a string.
     """
+    js = MARKDOWN_JS.format(raw_url=raw_url)
     html = _MARKDOWN_TEMPLATE.replace("{css}", MARKDOWN_CSS)
-    html = html.replace("{js}", MARKDOWN_JS)
+    html = html.replace("{js}", js)
     return Template(html).safe_substitute(
         filename=filename,
         raw_url=raw_url,
