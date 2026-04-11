@@ -86,21 +86,23 @@ def list_directory(path: Path, show_hidden: bool) -> list[FileEntry]:
         A sorted list of ``FileEntry`` objects.
     """
     entries: list[FileEntry] = []
-    for item in path.iterdir():
-        if not show_hidden and item.name.startswith("."):
-            continue
-        try:
-            stat = item.stat()
-        except OSError:
-            logger.warning("skipping %s: stat() failed", item)
-            continue
-        entries.append(
-            FileEntry(
-                name=item.name,
-                is_dir=item.is_dir(),
-                size=0 if item.is_dir() else stat.st_size,
-                modified=datetime.fromtimestamp(stat.st_mtime, tz=UTC),
+    with os.scandir(path) as it:
+        for entry in it:
+            if not show_hidden and entry.name.startswith("."):
+                continue
+            try:
+                stat = entry.stat()
+            except OSError:
+                logger.warning("skipping %s: stat() failed", entry.path)
+                continue
+            is_dir = entry.is_dir()
+            entries.append(
+                FileEntry(
+                    name=entry.name,
+                    is_dir=is_dir,
+                    size=0 if is_dir else stat.st_size,
+                    modified=datetime.fromtimestamp(stat.st_mtime, tz=UTC),
+                )
             )
-        )
     entries.sort(key=lambda e: (not e.is_dir, e.name.lower()))
     return entries
