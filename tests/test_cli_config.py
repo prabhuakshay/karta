@@ -13,7 +13,7 @@ class TestBuildConfig:
         parser = _build_parser()
         args = parser.parse_args([str(tmp_path)])
         with patch.dict("os.environ", {}, clear=True):
-            config = build_config(args)
+            config = build_config(args, tmp_path.resolve())
         assert config.directory == tmp_path.resolve()
         assert config.host == "127.0.0.1"
         assert config.port == 8000
@@ -27,21 +27,21 @@ class TestBuildConfig:
         parser = _build_parser()
         args = parser.parse_args([str(tmp_path), "--enable-upload", "--read-only"])
         with patch.dict("os.environ", {}, clear=True):
-            config = build_config(args)
+            config = build_config(args, tmp_path.resolve())
         assert config.enable_upload is False
 
     def test_upload_enabled_without_read_only(self, tmp_path):
         parser = _build_parser()
         args = parser.parse_args([str(tmp_path), "--enable-upload"])
         with patch.dict("os.environ", {}, clear=True):
-            config = build_config(args)
+            config = build_config(args, tmp_path.resolve())
         assert config.enable_upload is True
 
     def test_auth_from_flag(self, tmp_path):
         parser = _build_parser()
         args = parser.parse_args([str(tmp_path), "--auth", "user:pass"])
         with patch.dict("os.environ", {}, clear=True):
-            config = build_config(args)
+            config = build_config(args, tmp_path.resolve())
         assert config.username == "user"
         assert config.password == "pass"
 
@@ -49,7 +49,7 @@ class TestBuildConfig:
         parser = _build_parser()
         args = parser.parse_args([str(tmp_path)])
         with patch.dict("os.environ", {"NEEV_AUTH": "envuser:envpass"}):
-            config = build_config(args)
+            config = build_config(args, tmp_path.resolve())
         assert config.username == "envuser"
         assert config.password == "envpass"
 

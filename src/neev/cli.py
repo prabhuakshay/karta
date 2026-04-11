@@ -246,19 +246,19 @@ def _print_startup_banner(config: Config) -> None:
         print(f"  banner:        {_on(config.banner)}")
 
 
-def build_config(args: argparse.Namespace) -> Config:
+def build_config(args: argparse.Namespace, directory: Path) -> Config:
     """Resolve and validate parsed CLI arguments into a ``Config``.
 
-    Handles auth resolution (flag vs env var), directory validation,
-    and ``--read-only`` enforcement.
+    Handles auth resolution (flag vs env var) and ``--read-only``
+    enforcement. The directory must already be validated and resolved.
 
     Args:
         args: Parsed CLI arguments from argparse.
+        directory: The validated, resolved directory to serve.
 
     Returns:
         A frozen ``Config`` instance ready for use by the server.
     """
-    directory = _validate_directory(args.directory)
     username, password = _resolve_auth(args)
 
     if args.max_zip_size < 1:
@@ -291,6 +291,6 @@ def main() -> None:
     toml_data = load_toml(directory)
     if toml_data:
         merge_toml_into_args(args, toml_data, parser)
-    config = build_config(args)
+    config = build_config(args, directory)
     _print_startup_banner(config)
     run_server(config)
