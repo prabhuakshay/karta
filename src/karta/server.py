@@ -1,5 +1,6 @@
 """HTTP server and request handler for karta."""
 
+import shutil
 import sys
 from functools import partial
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -20,8 +21,8 @@ from karta.html import render_directory_listing
 from karta.html_login import render_login_page
 from karta.log import log_styled, status_color
 from karta.server_assets import serve_favicon, serve_static
-from karta.upload import MAX_UPLOAD_SIZE, UploadError, handle_create_folder, handle_upload
-from karta.zip import ZipSizeLimitError, create_zip_bytes
+from karta.server_upload import serve_mkdir, serve_upload
+from karta.zip import ZipSizeLimitError, create_zip_stream
 
 
 # -- Request handler -------------------------------------------------------
@@ -230,58 +231,11 @@ class KartaHandler(BaseHTTPRequestHandler):
 
     def _handle_upload(self, request_path: str) -> None:
         """Handle a file upload POST request."""
-        if not self.config.enable_upload:
-            self._send_error(403, "Uploads are disabled")
-            return
-
-        raw_length = self.headers.get("Content-Length")
-        if raw_length is None:
-            self._send_error(400, "Content-Length required")
-            return
-
-        content_length = int(raw_length)
-        if content_length > MAX_UPLOAD_SIZE:
-            self._send_error(413, "Upload too large")
-            return
-
-        content_type = self.headers.get("Content-Type", "")
-        resolved = resolve_safe_path(self.config.directory, request_path)
-        if resolved is None or not resolved.is_dir():
-            self._send_error(400, "Invalid upload target")
-            return
-
-        body = self.rfile.read(content_length)
-        try:
-            handle_upload(body, content_type, content_length, resolved, self.config.directory)
-        except UploadError as exc:
-            self._send_error(400, str(exc))
-            return
-
-        self._redirect(request_path)
+        serve_upload(self, self.config.directory, self.config.enable_upload, request_path)
 
     def _handle_mkdir(self, request_path: str, query: dict[str, list[str]]) -> None:
         """Handle a create-folder POST request."""
-        if not self.config.enable_upload:
-            self._send_error(403, "Uploads are disabled")
-            return
-
-        folder_name = query.get("mkdir", [""])[0]
-        if not folder_name:  # pragma: no cover — parse_qs drops blank values
-            self._send_error(400, "Folder name required")
-            return
-
-        resolved = resolve_safe_path(self.config.directory, request_path)
-        if resolved is None or not resolved.is_dir():
-            self._send_error(400, "Invalid target directory")
-            return
-
-        try:
-            handle_create_folder(folder_name, resolved, self.config.directory)
-        except UploadError as exc:
-            self._send_error(400, str(exc))
-            return
-
-        self._redirect(request_path)
+        serve_mkdir(self, self.config.directory, self.config.enable_upload, request_path, query)
 
     # -- Helpers -------------------------------------------------------------
 
@@ -334,7 +288,7 @@ class KartaHandler(BaseHTTPRequestHandler):
 
         dir_name = resolved.name or "root"
         try:
-            data = create_zip_bytes(
+            stream = create_zip_stream(
                 directory=resolved,
                 base_dir=self.config.directory,
                 show_hidden=self.config.show_hidden,
@@ -344,16 +298,20 @@ class KartaHandler(BaseHTTPRequestHandler):
             self._send_error(413, "ZIP archive too large")
             return
 
+        # Compute size by seeking to end — avoids getvalue() second copy.
+        size = stream.seek(0, 2)
+        stream.seek(0)
+
         self.send_response(200)
         self.send_header("Content-Type", "application/zip")
-        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Content-Length", str(size))
         self.send_header(
             "Content-Disposition",
             f'attachment; filename="{dir_name}.zip"',
         )
         self._cache_header()
         self.end_headers()
-        self.wfile.write(data)
+        shutil.copyfileobj(stream, self.wfile)
 
     def _send_error(self, code: int, message: str) -> None:
         """Send an error response with a plain-text body."""
