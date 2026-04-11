@@ -146,6 +146,15 @@ class TestUploadServer:
         assert b"Content-Length" in resp.read()
         conn.close()
 
+    def test_upload_malformed_content_length_returns_400(self, upload_server):
+        host, port = upload_server.replace("http://", "").split(":")
+        conn = http.client.HTTPConnection(host, int(port))
+        conn.request("POST", "/", headers={"Content-Length": "abc"})
+        resp = conn.getresponse()
+        assert resp.status == 400
+        assert b"Invalid Content-Length" in resp.read()
+        conn.close()
+
     def test_upload_too_large_returns_413(self, upload_server):
         body, ct = _build_multipart([("file", "big.txt", b"x" * 1024)])
         status, _, _ = _post(

@@ -35,7 +35,12 @@ def serve_upload(
         _send_error(handler, 400, "Content-Length required")
         return
 
-    content_length = int(raw_length)
+    try:
+        content_length = int(raw_length)
+    except ValueError:
+        _send_error(handler, 400, "Invalid Content-Length")
+        return
+
     if content_length > MAX_UPLOAD_SIZE:
         _send_error(handler, 413, "Upload too large")
         return

@@ -40,7 +40,12 @@ def handle_login(handler: BaseHTTPRequestHandler, config: Config, sessions: Sess
     if config.username is None or config.password is None:  # pragma: no cover
         return
 
-    content_length = int(handler.headers.get("Content-Length", 0))
+    try:
+        content_length = int(handler.headers.get("Content-Length", 0))
+    except ValueError:
+        _send_error(handler, 400, "Invalid Content-Length")
+        return
+
     if content_length < 0 or content_length > 8192:
         _send_error(handler, 413, "Request too large")
         return

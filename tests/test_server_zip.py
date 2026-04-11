@@ -1,5 +1,6 @@
 """Integration tests for ZIP download functionality."""
 
+import http.client
 import threading
 import zipfile
 from functools import partial
@@ -256,6 +257,19 @@ class TestSelectiveZipDownload:
     def test_selective_zip_filename_has_selected_suffix(self, zip_server):
         _, headers, _ = _post(zip_server, "/?zip", b"items=hello.txt")
         assert "selected.zip" in headers["Content-Disposition"]
+
+    def test_selective_zip_malformed_content_length_returns_400(self, zip_server):
+        host, port = zip_server.replace("http://", "").split(":")
+        conn = http.client.HTTPConnection(host, int(port))
+        conn.request(
+            "POST",
+            "/?zip",
+            headers={"Content-Length": "abc", "Content-Type": "application/x-www-form-urlencoded"},
+        )
+        resp = conn.getresponse()
+        assert resp.status == 400
+        assert b"Invalid Content-Length" in resp.read()
+        conn.close()
 
     def test_selective_zip_too_large_returns_413(self, serve_dir):
         tiny_config = Config(
