@@ -107,7 +107,10 @@ def render_entry_row(entry: FileEntry, request_path: str) -> str:
         f'<tr class="group hover:bg-sage-50 '
         f'transition-colors duration-100">'
         f'<td class="px-4 py-3">'
-        f'<a href="{href}" class="flex items-center gap-3 '
+        f'<a href="{href}"'
+        f"{f' data-href="{href}"' if not entry.is_dir else ''}"
+        f' class="{"file-link " if not entry.is_dir else ""}'
+        f"flex items-center gap-3 "
         f"{name_cls} group-hover:text-sage-500 "
         f'transition-colors duration-150">'
         f"{icon_html}"
@@ -141,7 +144,10 @@ def render_entry_card(entry: FileEntry, request_path: str) -> str:
     name_cls = "text-ink-800 font-medium" if entry.is_dir else "text-ink-700"
 
     return (
-        f'<a href="{href}" class="flex items-center gap-3 '
+        f'<a href="{href}"'
+        f"{f' data-href="{href}"' if not entry.is_dir else ''}"
+        f' class="{"file-link " if not entry.is_dir else ""}'
+        f"flex items-center gap-3 "
         f"px-4 py-3.5 hover:bg-sage-50 "
         f'transition-colors duration-100">'
         f"{icon_html}"
