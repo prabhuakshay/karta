@@ -6,30 +6,7 @@ on:
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        run: uv python install 3.13
-
-      - name: Install dependencies
-        run: uv sync --group dev
-
-      - name: Lint
-        run: uv run ruff check src/ tests/
-
-      - name: Format check
-        run: uv run ruff format --check src/ tests/
-
-      - name: Test
-        run: uv run pytest
+    uses: ./.github/workflows/ci.yml
 
   build:
     needs: ci
