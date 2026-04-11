@@ -7,9 +7,11 @@ This module is the security boundary: every filesystem access goes through
 import logging
 import mimetypes
 import os
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
+from urllib.parse import quote
 
 
 logger = logging.getLogger(__name__)
@@ -87,6 +89,29 @@ def is_previewable_type(mime_type: str) -> bool:
     if mime_type in _PREVIEWABLE_TYPES:
         return True
     return mime_type.startswith(_PREVIEWABLE_PREFIXES)
+
+
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def format_content_disposition(disposition: str, filename: str) -> str:
+    """Format a Content-Disposition header with safe filename encoding.
+
+    Produces an RFC 6266 header with both an ASCII ``filename`` parameter
+    (quotes and backslashes escaped, control characters stripped) and an
+    RFC 5987 ``filename*`` parameter for full Unicode support.
+
+    Args:
+        disposition: The disposition type (``"attachment"`` or ``"inline"``).
+        filename: The raw filename to encode.
+
+    Returns:
+        A properly formatted Content-Disposition header value.
+    """
+    safe = _CONTROL_CHARS.sub("", filename)
+    safe = safe.replace("\\", "\\\\").replace('"', '\\"')
+    encoded = quote(filename, safe="")
+    return f"{disposition}; filename=\"{safe}\"; filename*=UTF-8''{encoded}"
 
 
 _HIDDEN_FILES = {"neev.toml"}

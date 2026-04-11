@@ -1,6 +1,5 @@
 """HTTP server and request handler for neev."""
 
-import re
 import shutil
 import sys
 from functools import partial
@@ -17,6 +16,7 @@ from neev.auth import (
 )
 from neev.config import Config
 from neev.fs import (
+    format_content_disposition,
     get_mime_type,
     is_markdown_file,
     is_previewable_type,
@@ -235,10 +235,8 @@ class NeevHandler(BaseHTTPRequestHandler):
     def _serve_file(self, path: Path, *, force_download: bool = False) -> None:
         """Stream a file to the client in 64 KB chunks, keeping memory flat."""
         mime_type = get_mime_type(path)
-        if force_download or not is_previewable_type(mime_type):
-            disposition = f'attachment; filename="{path.name}"'
-        else:
-            disposition = f'inline; filename="{path.name}"'
+        dtype = "attachment" if force_download or not is_previewable_type(mime_type) else "inline"
+        disposition = format_content_disposition(dtype, path.name)
 
         self.send_response(200)
         self.send_header("Content-Type", mime_type)
@@ -276,7 +274,7 @@ class NeevHandler(BaseHTTPRequestHandler):
             self._send_error(403, "ZIP downloads are disabled")
             return
 
-        dir_name = re.sub(r"[^\w. -]", "_", resolved.name or "root")
+        zip_name = (resolved.name or "root") + ".zip"
         try:
             stream = create_zip_stream(
                 directory=resolved,
@@ -297,7 +295,7 @@ class NeevHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(size))
         self.send_header(
             "Content-Disposition",
-            f'attachment; filename="{dir_name}.zip"',
+            format_content_disposition("attachment", zip_name),
         )
         self._cache_header()
         self.end_headers()
