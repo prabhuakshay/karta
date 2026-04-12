@@ -219,11 +219,24 @@ class LoginRateLimiter:
         Args:
             ip: The client IP address.
         """
+        now = time.monotonic()
         with self._lock:
+            self._prune(now)
             record = self._attempts.get(ip)
             failures = (record[0] + 1) if record else 1
-            self._attempts[ip] = (failures, time.monotonic())
+            self._attempts[ip] = (failures, now)
         logger.warning("Failed login attempt %d from %s", failures, ip)
+
+    def _prune(self, now: float) -> None:
+        """Drop entries whose cooldown has fully elapsed.
+
+        Caller must hold ``self._lock``.
+        """
+        expired = [ip for ip, rec in self._attempts.items() if (now - rec[1]) >= MAX_COOLDOWN]
+        for ip in expired:
+            del self._attempts[ip]
+        if expired:
+            logger.debug("Pruned %d stale rate-limit entries", len(expired))
 
     def record_success(self, ip: str) -> None:
         """Clear the failure record for an IP after a successful login.
