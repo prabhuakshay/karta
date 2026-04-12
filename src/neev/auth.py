@@ -15,6 +15,9 @@ TOKEN_TTL = 86400  # 24 hours in seconds
 
 COOKIE_NAME = "neev_session"
 
+# Run opportunistic pruning every Nth validate() call.
+_VALIDATE_PRUNE_INTERVAL = 100
+
 
 # -- Credential validation ---------------------------------------------------
 
@@ -115,6 +118,7 @@ class SessionStore:
         self._lock = threading.Lock()
         # Maps token → monotonic creation timestamp.
         self._tokens: dict[str, float] = {}
+        self._validate_count = 0
 
     def create(self) -> str:
         """Create a new session token, pruning expired tokens first.
@@ -138,6 +142,9 @@ class SessionStore:
             ``True`` if the token exists and has not exceeded ``TOKEN_TTL``.
         """
         with self._lock:
+            self._validate_count += 1
+            if self._validate_count % _VALIDATE_PRUNE_INTERVAL == 0:
+                self._prune()
             created_at = self._tokens.get(token)
             if created_at is None:
                 return False
@@ -151,6 +158,7 @@ class SessionStore:
         """
         with self._lock:
             self._tokens.pop(token, None)
+            self._prune()
 
     def _prune(self) -> None:
         """Remove all tokens that have exceeded ``TOKEN_TTL``."""
