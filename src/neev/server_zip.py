@@ -7,7 +7,7 @@ and streams it to the client.
 import shutil
 from http.server import BaseHTTPRequestHandler
 from typing import TYPE_CHECKING
-from urllib.parse import parse_qs, unquote
+from urllib.parse import parse_qs
 
 from neev.fs import format_content_disposition, resolve_safe_path
 from neev.zip import ZipSizeLimitError, create_selective_zip_stream
@@ -54,7 +54,7 @@ def serve_selective_zip(handler: "NeevHandler", request_path: str) -> None:
 
     raw_body = handler.rfile.read(content_length).decode("utf-8", errors="replace")
     parsed = parse_qs(raw_body)
-    items = [unquote(i) for i in parsed.get("items", [])]
+    items = parsed.get("items", [])
 
     if not items:
         _send_text(handler, 400, b"No items selected")

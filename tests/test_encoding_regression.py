@@ -4,12 +4,23 @@ One test class per finding. Covers the behaviors listed in the issue's
 acceptance criteria.
 """
 
+import http.client  # noqa: F401
 import re
+import threading
 from datetime import UTC, datetime
+from functools import partial
+from http.server import HTTPServer
+from io import BytesIO
+from urllib.parse import quote
+from urllib.request import Request, urlopen
+from zipfile import ZipFile
 
+from neev.auth import LoginRateLimiter, SessionStore
+from neev.config import Config
 from neev.fs import FileEntry
 from neev.html_entries import entry_href, render_entry_row
 from neev.html_nav import render_breadcrumb_html
+from neev.server import NeevHandler
 from neev.server_preview import serve_generic_preview
 
 
@@ -46,6 +57,53 @@ class TestEntryHrefHtmlInjection:
         assert m is not None
         href_val = m.group(1)
         assert '"' not in href_val
+
+
+# -- Finding #3: selective zip item name decoding ---------------------------
+
+
+class TestSelectiveZipDecoding:
+    """Finding #3 — parse_qs already URL-decodes; unquote() ran twice."""
+
+    def test_items_with_literal_percent_reachable(self, tmp_path):
+        """A filename containing a literal ``%`` must survive the POST decode."""
+        # File with a literal '%' in the name
+        (tmp_path / "a%b.txt").write_text("data")
+
+        cfg = Config(
+            directory=tmp_path,
+            host="127.0.0.1",
+            port=0,
+            username=None,
+            password=None,
+            show_hidden=False,
+            enable_zip_download=True,
+            max_zip_size=104857600,
+            enable_upload=False,
+        )
+        sessions = SessionStore()
+        handler = partial(NeevHandler, cfg, sessions, LoginRateLimiter())
+        httpd = HTTPServer(("127.0.0.1", 0), handler)
+        port = httpd.server_address[1]
+        t = threading.Thread(target=httpd.serve_forever, daemon=True)
+        t.start()
+        try:
+            # Form body quotes '%' as %25 — after parse_qs it decodes to '%'
+            # Before the fix, unquote() ran again and produced empty string
+            body = ("items=" + quote("a%b.txt", safe="")).encode()
+            req = Request(
+                f"http://127.0.0.1:{port}/?zip",
+                data=body,
+                method="POST",
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            resp = urlopen(req)
+            assert resp.status == 200
+            zf = ZipFile(BytesIO(resp.read()))
+            assert "a%b.txt" in zf.namelist()
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
 
 
 # -- Finding #2: preview URLs ------------------------------------------------
