@@ -1,4 +1,11 @@
-"""HTML page template for neev directory listings."""
+"""HTML page template for neev directory listings.
+
+Escaping note: the ``x-data="{{ ... }}"`` block below is a *JavaScript*
+context (Alpine.js expression), not an HTML one. Any future value
+interpolated into ``x-data`` or sibling ``x-*`` directives must be
+``json.dumps``-encoded, not ``html.escape``-d — HTML escaping leaves JS
+string terminators intact and is insufficient for this context.
+"""
 
 PAGE_TEMPLATE = """\
 <!DOCTYPE html>

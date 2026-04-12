@@ -126,6 +126,10 @@ $js
 </html>"""
 
 
+_MARKDOWN_TEMPLATE_OBJ = Template(_MARKDOWN_TEMPLATE)
+_MARKDOWN_JS_TEMPLATE_OBJ = Template(MARKDOWN_JS)
+
+
 def render_markdown_preview(filename: str, raw_url: str, raw_url_js: str, parent_url: str) -> str:
     """Render an HTML page that previews a markdown file.
 
@@ -138,8 +142,8 @@ def render_markdown_preview(filename: str, raw_url: str, raw_url_js: str, parent
     Returns:
         Complete HTML page as a string.
     """
-    js = Template(MARKDOWN_JS).safe_substitute(raw_url=raw_url_js)
-    return Template(_MARKDOWN_TEMPLATE).safe_substitute(
+    js = _MARKDOWN_JS_TEMPLATE_OBJ.safe_substitute(raw_url=raw_url_js)
+    return _MARKDOWN_TEMPLATE_OBJ.safe_substitute(
         css=MARKDOWN_CSS,
         js=js,
         filename=filename,

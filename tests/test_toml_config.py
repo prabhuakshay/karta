@@ -28,14 +28,14 @@ def parser():
     """Create a minimal argparse parser matching neev's CLI."""
     p = argparse.ArgumentParser()
     p.add_argument("directory", nargs="?", default=".")
-    p.add_argument("--host", default="127.0.0.1")
-    p.add_argument("--port", "-p", default=8000, type=int)
+    p.add_argument("--host", default=None)
+    p.add_argument("--port", "-p", default=None, type=int)
     p.add_argument("--auth", default=None)
-    p.add_argument("--show-hidden", action="store_true", default=False)
-    p.add_argument("--enable-zip-download", action="store_true", default=False)
-    p.add_argument("--max-zip-size", default=100, type=int)
-    p.add_argument("--enable-upload", action="store_true", default=False)
-    p.add_argument("--read-only", action="store_true", default=False)
+    p.add_argument("--show-hidden", action=argparse.BooleanOptionalAction, default=None)
+    p.add_argument("--enable-zip-download", action=argparse.BooleanOptionalAction, default=None)
+    p.add_argument("--max-zip-size", default=None, type=int)
+    p.add_argument("--enable-upload", action=argparse.BooleanOptionalAction, default=None)
+    p.add_argument("--read-only", action=argparse.BooleanOptionalAction, default=None)
     p.add_argument("--banner", default=None)
     return p
 
@@ -61,7 +61,7 @@ class TestMergeToml:
     def test_toml_values_applied_as_defaults(self, toml_dir, parser):
         args = parser.parse_args([])
         data = load_toml(toml_dir)
-        merge_toml_into_args(args, data, parser)
+        merge_toml_into_args(args, data)
         assert args.host == "0.0.0.0"
         assert args.port == 9000
         assert args.banner == "Test banner"
@@ -71,7 +71,7 @@ class TestMergeToml:
     def test_cli_overrides_toml(self, toml_dir, parser):
         args = parser.parse_args(["--host", "192.168.1.1", "--port", "4000"])
         data = load_toml(toml_dir)
-        merge_toml_into_args(args, data, parser)
+        merge_toml_into_args(args, data)
         assert args.host == "192.168.1.1"
         assert args.port == 4000
         # Non-overridden values from toml
@@ -81,19 +81,31 @@ class TestMergeToml:
         (tmp_path / "neev.toml").write_text('unknown-key = "value"\n')
         args = parser.parse_args([])
         data = load_toml(tmp_path)
-        merge_toml_into_args(args, data, parser)
+        merge_toml_into_args(args, data)
         assert not hasattr(args, "unknown_key")
 
     def test_empty_toml_no_changes(self, parser):
         args = parser.parse_args([])
-        merge_toml_into_args(args, {}, parser)
-        assert args.host == "127.0.0.1"
-        assert args.port == 8000
+        merge_toml_into_args(args, {})
+        assert args.host is None
+        assert args.port is None
 
     def test_denied_directory_key_ignored(self, parser, caplog):
         """Setting `directory` via neev.toml must be ignored (security)."""
         args = parser.parse_args([])
         original = args.directory
-        merge_toml_into_args(args, {"directory": "/etc"}, parser)
+        merge_toml_into_args(args, {"directory": "/etc"})
         assert args.directory == original
         assert any("denied" in r.message.lower() for r in caplog.records)
+
+    def test_cli_value_matching_default_still_wins(self, toml_dir, parser):
+        """Regression for #105: --port 8000 (matches real default) must beat TOML port = 9000.
+
+        Before the fix, merge compared ``current == parser_default``; since the
+        parser default was 8000, an explicit ``--port 8000`` looked unset and
+        TOML (9000) overrode it. With None sentinels, this is unambiguous.
+        """
+        args = parser.parse_args(["--port", "8000"])
+        data = load_toml(toml_dir)
+        merge_toml_into_args(args, data)
+        assert args.port == 8000

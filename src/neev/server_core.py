@@ -19,6 +19,7 @@ from neev.fs import (
     list_directory,
 )
 from neev.html import render_directory_listing
+from neev.server_utils import send_error
 from neev.zip import ZipSizeLimitError, stream_zip
 
 
@@ -50,7 +51,7 @@ def serve_file(
     try:
         f = path.open("rb")
     except OSError:
-        _send_error(handler, 404, "File not found")
+        send_error(handler, 404, "File not found")
         return
 
     try:
@@ -120,7 +121,6 @@ def _parse_range(header: str | None, size: int) -> tuple[int, int] | None:  # no
     start_s, end_s = spec.split("-", 1)
     try:
         if start_s == "":
-            # suffix range: last N bytes
             suffix = int(end_s)
             if suffix <= 0:
                 return _RANGE_INVALID
@@ -157,15 +157,7 @@ def serve_directory(
     *,
     auth_enabled: bool = False,
 ) -> None:
-    """Serve an HTML directory listing.
-
-    Args:
-        handler: The active request handler.
-        config: The resolved server configuration.
-        request_path: The original URL path from the request.
-        resolved: Resolved path to the directory on disk.
-        auth_enabled: Whether to show the logout button and suppress caching.
-    """
+    """Serve an HTML directory listing."""
     entries = list_directory(resolved, config.show_hidden)
     page = render_directory_listing(
         path=resolved,
@@ -194,16 +186,16 @@ def serve_zip(
     *,
     auth_enabled: bool = False,
 ) -> None:
-    """Serve a ZIP archive of a directory's contents.
+    """Stream a ZIP archive of a directory's contents to the client.
 
-    Args:
-        handler: The active request handler.
-        config: The resolved server configuration.
-        resolved: Resolved path to the directory on disk.
-        auth_enabled: Whether to send ``Cache-Control: no-store``.
+    Headers are flushed up-front with ``Transfer-Encoding: chunked``, then
+    the archive is streamed directly into ``wfile``. If ``max_zip_size`` is
+    exceeded mid-stream, the response truncates and the event is logged —
+    at that point the client has already received a 200, so a 413 is not
+    possible.
     """
     if not config.enable_zip_download:
-        _send_error(handler, 403, "ZIP downloads are disabled")
+        send_error(handler, 403, "ZIP downloads are disabled")
         return
 
     zip_name = (resolved.name or "root") + ".zip"
@@ -229,13 +221,3 @@ def serve_zip(
         )
     except ZipSizeLimitError:
         logger.warning("ZIP stream aborted: exceeded max_zip_size=%d", config.max_zip_size)
-
-
-def _send_error(handler: BaseHTTPRequestHandler, code: int, message: str) -> None:
-    """Send an error response with a plain-text body."""
-    body = message.encode()
-    handler.send_response(code)
-    handler.send_header("Content-Type", "text/plain; charset=utf-8")
-    handler.send_header("Content-Length", str(len(body)))
-    handler.end_headers()
-    handler.wfile.write(body)

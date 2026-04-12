@@ -4,7 +4,7 @@ import sys
 from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse, urlsplit
 
 from neev.auth import (
     COOKIE_NAME,
@@ -108,23 +108,20 @@ class NeevHandler(BaseHTTPRequestHandler):
             ``True`` if the request may proceed, ``False`` if blocked.
         """
         origin = self.headers.get("Origin")
-        if origin is None:
-            referer = self.headers.get("Referer")
-            if referer is None:
-                return True
-            origin = referer.split("/")[0] + "//" + referer.split("/")[2]
-
-        host = self.headers.get("Host", "")
-        origin_host = origin.split("//", 1)[-1].rstrip("/")
-        if origin_host == host:
+        source = origin if origin is not None else self.headers.get("Referer")
+        if source is None:
             return True
 
-        body = b"403 Forbidden - origin mismatch"
-        self.send_response(403)
-        self.send_header("Content-Type", "text/plain")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        parts = urlsplit(source)
+        if not parts.scheme or not parts.netloc:
+            send_error(self, 400, "Bad Request - malformed Origin/Referer")
+            return False
+
+        host = self.headers.get("Host", "")
+        if parts.netloc == host:
+            return True
+
+        send_error(self, 403, "Forbidden - origin mismatch")
         return False
 
     def _send_401(self) -> None:
@@ -142,11 +139,11 @@ class NeevHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: PLR0911 -- router: each branch is a distinct route
         """Handle GET requests: auth pages, files, directories, static."""
         if self.config.auth_enabled and self.path == "/_neev/login":
-            self._serve_login_page()
+            serve_login_page(self)
             return
 
         if self.config.auth_enabled and self.path == "/_neev/logout":
-            self._handle_logout()
+            handle_logout(self, self.sessions)
             return
 
         if not self._check_auth():
@@ -162,20 +159,20 @@ class NeevHandler(BaseHTTPRequestHandler):
 
         parsed = urlparse(self.path)
         request_path = unquote(parsed.path)
-        wants_zip = parsed.query == "zip"
+        query = parse_qs(parsed.query, keep_blank_values=True)
         resolved = resolve_safe_path(self.config.directory, request_path)
 
         if resolved is None:
-            self._send_error(403, "Forbidden")
+            send_error(self, 403, "Forbidden")
             return
 
         if not resolved.exists():
-            self._send_error(404, "Not Found")
+            send_error(self, 404, "Not Found")
             return
 
         auth = self.config.auth_enabled
 
-        if resolved.is_dir() and wants_zip:
+        if resolved.is_dir() and "zip" in query:
             serve_zip(self, self.config, resolved, auth_enabled=auth)
             return
 
@@ -183,67 +180,43 @@ class NeevHandler(BaseHTTPRequestHandler):
             serve_directory(self, self.config, request_path, resolved, auth_enabled=auth)
             return
 
-        if parsed.query == "preview" and is_markdown_file(resolved):
+        if "preview" in query and is_markdown_file(resolved):
             serve_markdown_preview(self, resolved, request_path)
             return
 
-        if parsed.query == "preview":
+        if "preview" in query:
             mime = get_mime_type(resolved)
             if is_previewable_type(mime):
                 serve_generic_preview(self, resolved, request_path, mime)
                 return
 
-        serve_file(self, resolved, force_download=parsed.query == "download", auth_enabled=auth)
+        serve_file(self, resolved, force_download="download" in query, auth_enabled=auth)
 
     def do_POST(self) -> None:
         """Handle POST requests: login, file uploads, folder creation."""
+        if not self._check_origin():
+            return
+
         if self.config.auth_enabled and self.path == "/_neev/login":
-            self._handle_login()
+            handle_login(self, self.config, self.sessions, self.rate_limiter)
             return
 
         if not self._check_auth():
             return
 
-        if not self._check_origin():
-            return
-
         parsed = urlparse(self.path)
         request_path = unquote(parsed.path)
-        query = parse_qs(parsed.query)
+        query = parse_qs(parsed.query, keep_blank_values=True)
 
-        if parsed.query == "zip":
+        if "zip" in query:
             serve_selective_zip(self, request_path)
             return
 
         if "mkdir" in query:
-            self._handle_mkdir(request_path, query)
+            serve_mkdir(self, self.config.directory, self.config.enable_upload, request_path, query)
             return
 
-        self._handle_upload(request_path)
-
-    # -- Auth pages ----------------------------------------------------------
-
-    def _serve_login_page(self, error: str | None = None) -> None:
-        """Serve the login form page."""
-        serve_login_page(self, error)
-
-    def _handle_login(self) -> None:
-        """Process a login form POST and set a session cookie on success."""
-        handle_login(self, self.config, self.sessions, self.rate_limiter)
-
-    def _handle_logout(self) -> None:
-        """Invalidate the session and redirect to the login page."""
-        handle_logout(self, self.sessions)
-
-    # -- Uploads -------------------------------------------------------------
-
-    def _handle_upload(self, request_path: str) -> None:
-        """Handle a file upload POST request."""
         serve_upload(self, self.config.directory, self.config.enable_upload, request_path)
-
-    def _handle_mkdir(self, request_path: str, query: dict[str, list[str]]) -> None:
-        """Handle a create-folder POST request."""
-        serve_mkdir(self, self.config.directory, self.config.enable_upload, request_path, query)
 
     # -- Helpers -------------------------------------------------------------
 
@@ -252,15 +225,6 @@ class NeevHandler(BaseHTTPRequestHandler):
         self.send_response(303)
         self.send_header("Location", location)
         self.end_headers()
-
-    def _cache_header(self) -> None:
-        """Set Cache-Control: no-store when auth is enabled."""
-        if self.config.auth_enabled:
-            self.send_header("Cache-Control", "no-store")
-
-    def _send_error(self, code: int, message: str) -> None:
-        """Send an error response with a plain-text body."""
-        send_error(self, code, message)
 
     # -- Logging -------------------------------------------------------------
 
@@ -273,7 +237,7 @@ class NeevHandler(BaseHTTPRequestHandler):
         status = status_color(int(code)) if str(code).isdigit() else str(code)
         print(f"  {method} {path} {status}", file=sys.stderr)
 
-    def log_message(self, format: str, *args: object) -> None:  # noqa: A002
+    def log_message(self, format: str, *args: object) -> None:  # noqa: A002 -- signature mandated by BaseHTTPRequestHandler.log_message
         """Suppress default BaseHTTPRequestHandler logging."""
 
 

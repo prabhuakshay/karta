@@ -123,43 +123,35 @@ def _file_data_attrs(entry: FileEntry, href: str) -> str:
     return f' data-href="{href}"{preview}'
 
 
-def _copy_link_button(href: str) -> str:
+_COPY_BTN_CLASSES_DESKTOP = (
+    "copy-link-btn ml-1 p-1 rounded text-ink-300"
+    " hover:text-sage-500 hover:bg-sage-50"
+    " opacity-0 group-hover:opacity-100"
+    " focus:opacity-100 cursor-pointer"
+    " transition-all duration-150"
+)
+_COPY_BTN_CLASSES_MOBILE = (
+    "copy-link-btn p-1.5 rounded text-ink-300"
+    " hover:text-sage-500 hover:bg-sage-50 cursor-pointer"
+    " transition-all duration-150 shrink-0"
+)
+
+
+def _copy_link_button(href: str, *, mobile: bool = False) -> str:
     """Render a copy-link button for a file entry.
 
     Args:
         href: The URL-safe href for this file.
+        mobile: Use the mobile card styling (always visible) instead of
+            the desktop row styling (reveal on hover/focus).
 
     Returns:
         HTML button string with Alpine.js click handler.
     """
+    classes = _COPY_BTN_CLASSES_MOBILE if mobile else _COPY_BTN_CLASSES_DESKTOP
     return (
         f"<button @click.prevent.stop=\"copyLink($event, '{href}')\""
-        ' class="copy-link-btn ml-1 p-1 rounded text-ink-300'
-        " hover:text-sage-500 hover:bg-sage-50"
-        " opacity-0 group-hover:opacity-100"
-        " focus:opacity-100 cursor-pointer"
-        ' transition-all duration-150"'
-        ' title="Copy link" type="button">'
-        f'<span class="icon-copy">{_COPY_ICON}</span>'
-        f'<span class="icon-check" style="display:none">{_CHECK_ICON}</span>'
-        "</button>"
-    )
-
-
-def _copy_link_button_mobile(href: str) -> str:
-    """Render a copy-link button for a mobile file card.
-
-    Args:
-        href: The URL-safe href for this file.
-
-    Returns:
-        HTML button string, always visible on mobile.
-    """
-    return (
-        f"<button @click.prevent.stop=\"copyLink($event, '{href}')\""
-        ' class="copy-link-btn p-1.5 rounded text-ink-300'
-        " hover:text-sage-500 hover:bg-sage-50 cursor-pointer"
-        ' transition-all duration-150 shrink-0"'
+        f' class="{classes}"'
         ' title="Copy link" type="button">'
         f'<span class="icon-copy">{_COPY_ICON}</span>'
         f'<span class="icon-check" style="display:none">{_CHECK_ICON}</span>'
@@ -278,7 +270,7 @@ def render_entry_card(entry: FileEntry, request_path: str) -> str:
         '<path stroke-linecap="round" stroke-linejoin="round" '
         'stroke-width="2" d="M9 5l7 7-7 7"/></svg>'
     )
-    copy_btn = _copy_link_button_mobile(href) if not entry.is_dir else ""
+    copy_btn = _copy_link_button(href, mobile=True) if not entry.is_dir else ""
     trailing = copy_btn + chevron if copy_btn else chevron
 
     js_name_attr = html.escape(_js_escape(entry.name))
