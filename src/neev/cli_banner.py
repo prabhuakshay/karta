@@ -19,6 +19,18 @@ def _print_error(message: str) -> None:
         print(f"error: {message}", file=sys.stderr)
 
 
+def _print_warning(message: str) -> None:
+    """Print a yellow warning message to stderr.
+
+    Args:
+        message: The warning text (without ``warning:`` prefix).
+    """
+    if sys.stderr.isatty():
+        print(f"\033[33mwarning:\033[0m {message}", file=sys.stderr)
+    else:
+        print(f"warning: {message}", file=sys.stderr)
+
+
 def _on(label: str) -> str:
     """Format an enabled feature label in green."""
     return ansi_styled(label, "32", stream=sys.stdout)

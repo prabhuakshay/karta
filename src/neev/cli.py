@@ -93,6 +93,9 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="external base URL for neev behind a reverse proxy",
     )
+    # share-secret is TOML-only (no CLI flag) but the attribute must exist
+    # so merge_toml_into_args() can populate it without a spurious warning.
+    parser.set_defaults(share_secret=None)
     return parser
 
 

@@ -5,8 +5,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from neev.cli_banner import _print_error
+from neev.cli_banner import _print_error, _print_warning
 from neev.config import Config
+from neev.share import generate_secret, parse_secret_hex
 
 
 # Real defaults live here (not on the parser). The parser uses ``None`` as a
@@ -93,6 +94,40 @@ def _validate_public_url(raw: str) -> str:
         _print_error(f"--public-url must not contain a query or fragment (got '{raw}')")
         raise SystemExit(1)
     return candidate.rstrip("/")
+
+
+def _resolve_share_secret(args: argparse.Namespace) -> bytes:
+    """Resolve the server's share-link HMAC secret.
+
+    If ``share-secret`` was set via TOML, decode it from hex. Otherwise
+    generate a fresh one and print it to stderr so the operator can pin
+    it in ``neev.toml`` if they want tokens to survive a restart.
+
+    Args:
+        args: Parsed CLI arguments (post-TOML-merge).
+
+    Returns:
+        The secret bytes.
+
+    Raises:
+        SystemExit: If a configured ``share-secret`` is not valid hex.
+    """
+    raw = getattr(args, "share_secret", None)
+    if raw is None:
+        generated = generate_secret()
+        _print_warning(
+            f"no share-secret configured; generated ephemeral one: {generated.hex()} "
+            '(pin it in neev.toml as share-secret = "..." to survive restarts)'
+        )
+        return generated
+    if not isinstance(raw, str):
+        _print_error("share-secret in neev.toml must be a hex-encoded string")
+        raise SystemExit(1)
+    try:
+        return parse_secret_hex(raw)
+    except ValueError as exc:
+        _print_error(str(exc))
+        raise SystemExit(1) from None
 
 
 def _resolve_public_url(args: argparse.Namespace) -> str | None:
@@ -198,4 +233,5 @@ def build_config(args: argparse.Namespace, directory: Path) -> Config:
         enable_upload=enable_upload,
         banner=args.banner,
         public_url=_resolve_public_url(args),
+        share_secret=_resolve_share_secret(args),
     )
