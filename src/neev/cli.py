@@ -1,9 +1,11 @@
 """CLI argument parsing and entry point for neev."""
 
 import argparse
+import sys
 from pathlib import Path
 
 from neev.cli_banner import _print_startup_banner
+from neev.cli_share import is_share_invocation, share_main
 from neev.cli_validators import _validate_directory, _validate_port, build_config
 from neev.server import run_server
 from neev.toml_config import (
@@ -106,6 +108,10 @@ def main() -> None:
     in the served directory, then user-level ``neev.toml`` in the platform
     config dir, then hardcoded defaults.
     """
+    if is_share_invocation(sys.argv):
+        share_main(sys.argv[2:])
+        return
+
     parser = _build_parser()
     args = parser.parse_args()
     directory = _validate_directory(args.directory)
