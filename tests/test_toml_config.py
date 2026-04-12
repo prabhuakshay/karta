@@ -89,3 +89,11 @@ class TestMergeToml:
         merge_toml_into_args(args, {}, parser)
         assert args.host == "127.0.0.1"
         assert args.port == 8000
+
+    def test_denied_directory_key_ignored(self, parser, caplog):
+        """Setting `directory` via neev.toml must be ignored (security)."""
+        args = parser.parse_args([])
+        original = args.directory
+        merge_toml_into_args(args, {"directory": "/etc"}, parser)
+        assert args.directory == original
+        assert any("denied" in r.message.lower() for r in caplog.records)

@@ -14,6 +14,8 @@ from neev.cli import (
     _resolve_auth,
     _validate_directory,
     _validate_port,
+    build_config,
+    main,
 )
 from neev.config import Config
 
@@ -261,3 +263,61 @@ class TestPrintStartupBanner:
         assert "uploads:       enabled" in output
         assert "zip downloads: enabled" in output
         assert "hidden files:  visible" in output
+
+    def test_banner_with_custom_banner(self, tmp_path, capsys):
+        config = Config(
+            directory=tmp_path,
+            host="127.0.0.1",
+            port=8000,
+            username=None,
+            password=None,
+            show_hidden=False,
+            enable_zip_download=False,
+            max_zip_size=104857600,
+            enable_upload=False,
+            banner="Welcome to my server",
+        )
+        _print_startup_banner(config)
+        output = capsys.readouterr().out
+        assert "banner:" in output
+        assert "Welcome to my server" in output
+
+
+# -- build_config -----------------------------------------------------------
+
+
+class TestBuildConfig:
+    def test_max_zip_size_zero_rejected(self, tmp_path, capsys):
+        parser = _build_parser()
+        args = parser.parse_args([str(tmp_path), "--max-zip-size", "0"])
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            pytest.raises(SystemExit, match="1"),
+        ):
+            build_config(args, tmp_path)
+        assert "at least 1 MB" in capsys.readouterr().err
+
+
+# -- main -------------------------------------------------------------------
+
+
+class TestMain:
+    def test_main_runs(self, tmp_path):
+        with (
+            patch("sys.argv", ["neev", str(tmp_path)]),
+            patch.dict("os.environ", {}, clear=True),
+            patch("neev.cli.run_server") as mock_server,
+        ):
+            main()
+        mock_server.assert_called_once()
+
+    def test_main_applies_toml_config(self, tmp_path):
+        (tmp_path / "neev.toml").write_text("show-hidden = true\n")
+        with (
+            patch("sys.argv", ["neev", str(tmp_path)]),
+            patch.dict("os.environ", {}, clear=True),
+            patch("neev.cli.run_server") as mock_server,
+        ):
+            main()
+        config = mock_server.call_args[0][0]
+        assert config.show_hidden is True

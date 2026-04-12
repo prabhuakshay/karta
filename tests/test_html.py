@@ -249,3 +249,35 @@ class TestRenderDirectoryListing:
             enable_zip_download=True,
         )
         assert "/builds/?zip" in page
+
+    def test_banner_shown_when_set(self, tmp_path):
+        page = render_directory_listing(
+            path=tmp_path,
+            entries=[],
+            base_dir=tmp_path,
+            request_path="/",
+            banner="Welcome banner message",
+        )
+        assert "Welcome banner message" in page
+        assert "bg-sage-50" in page
+
+    def test_banner_escapes_html(self, tmp_path):
+        page = render_directory_listing(
+            path=tmp_path,
+            entries=[],
+            base_dir=tmp_path,
+            request_path="/",
+            banner='<script>alert("xss")</script>',
+        )
+        assert 'alert("xss")' not in page
+        assert "&lt;script&gt;" in page
+
+    def test_banner_hidden_when_none(self, tmp_path):
+        page = render_directory_listing(
+            path=tmp_path,
+            entries=[],
+            base_dir=tmp_path,
+            request_path="/",
+            banner=None,
+        )
+        assert "bg-sage-50" not in page
