@@ -27,6 +27,10 @@ class Config:
         enable_zip_download: Whether on-the-fly ZIP downloads of folders are allowed.
         max_zip_size: Maximum size in bytes for generated ZIP archives.
         enable_upload: Whether file uploads are accepted.
+        public_url: External base URL when neev runs behind a reverse proxy,
+            or ``None`` when the bind URL is also the public URL. Trailing
+            slash is stripped at parse so callers can safely concatenate
+            ``public_url + "/path"``.
         auth_enabled: Whether HTTP Basic Auth is active (computed at init).
     """
 
@@ -40,6 +44,7 @@ class Config:
     max_zip_size: int
     enable_upload: bool
     banner: str | None = None
+    public_url: str | None = None
     auth_enabled: bool = False
 
     def __post_init__(self) -> None:
