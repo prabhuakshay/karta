@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from neev.fs import FileEntry
 from neev.html_entries import entry_href, render_entry_row
 from neev.html_nav import render_breadcrumb_html
+from neev.server_preview import serve_generic_preview
 
 
 def _file(name: str, is_dir: bool = False) -> FileEntry:
@@ -45,6 +46,48 @@ class TestEntryHrefHtmlInjection:
         assert m is not None
         href_val = m.group(1)
         assert '"' not in href_val
+
+
+# -- Finding #2: preview URLs ------------------------------------------------
+
+
+class TestPreviewUrlEncoding:
+    """Finding #2 — preview URLs were html-escaped but not URL-encoded."""
+
+    def test_image_preview_src_url_encoded(self, tmp_path):
+        p = tmp_path / "has space.png"
+        p.write_bytes(b"x")
+
+        class _Stub:
+            def __init__(self):
+                self.body = b""
+                self.status = None
+                self.headers = []
+
+            def send_response(self, s):
+                self.status = s
+
+            def send_header(self, k, v):
+                self.headers.append((k, v))
+
+            def end_headers(self):
+                pass
+
+            class _W:
+                def __init__(self, parent):
+                    self.parent = parent
+
+                def write(self, b):
+                    self.parent.body += b
+
+            @property
+            def wfile(self):
+                return self._W(self)
+
+        h = _Stub()
+        serve_generic_preview(h, p, "/has space.png", "image/png")  # type: ignore[arg-type]
+        assert b"%20" in h.body
+        assert b' src="/has space.png"' not in h.body
 
 
 class TestBreadcrumbHrefEncoding:
