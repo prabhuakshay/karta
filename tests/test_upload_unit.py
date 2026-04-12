@@ -177,10 +177,11 @@ class TestHandleUpload:
         assert "new.txt" in saved
         assert (serve_dir / "new.txt").read_bytes() == b"content"
 
-    def test_overwrites_existing(self, serve_dir):
+    def test_rejects_existing(self, serve_dir):
         body, ct = _build_multipart([("file", "existing.txt", b"overwritten")])
-        handle_upload(io.BytesIO(body), ct, len(body), serve_dir, serve_dir)
-        assert (serve_dir / "existing.txt").read_text() == "overwritten"
+        with pytest.raises(UploadError, match="already exists"):
+            handle_upload(io.BytesIO(body), ct, len(body), serve_dir, serve_dir)
+        assert (serve_dir / "existing.txt").read_text() == "already here"
 
     def test_rejects_too_large(self, serve_dir):
         body, ct = _build_multipart([("file", "big.txt", b"x")])

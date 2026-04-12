@@ -302,6 +302,9 @@ def handle_upload(
             if not real_save.startswith(real_base + os.sep):  # pragma: no cover
                 raise UploadError(f"Path traversal blocked for '{filename}'")
 
+            if save_path.exists():
+                raise UploadError(f"'{safe_name}' already exists")
+
             with save_path.open("wb") as dest:
                 shutil.copyfileobj(data, dest)
             logger.info("Saved upload: %s", save_path)

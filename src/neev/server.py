@@ -4,7 +4,7 @@ import sys
 from functools import partial
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse, urlsplit
 
 from neev.auth import (
     COOKIE_NAME,
@@ -108,23 +108,20 @@ class NeevHandler(BaseHTTPRequestHandler):
             ``True`` if the request may proceed, ``False`` if blocked.
         """
         origin = self.headers.get("Origin")
-        if origin is None:
-            referer = self.headers.get("Referer")
-            if referer is None:
-                return True
-            origin = referer.split("/")[0] + "//" + referer.split("/")[2]
-
-        host = self.headers.get("Host", "")
-        origin_host = origin.split("//", 1)[-1].rstrip("/")
-        if origin_host == host:
+        source = origin if origin is not None else self.headers.get("Referer")
+        if source is None:
             return True
 
-        body = b"403 Forbidden - origin mismatch"
-        self.send_response(403)
-        self.send_header("Content-Type", "text/plain")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        parts = urlsplit(source)
+        if not parts.scheme or not parts.netloc:
+            self._send_error(400, "Bad Request - malformed Origin/Referer")
+            return False
+
+        host = self.headers.get("Host", "")
+        if parts.netloc == host:
+            return True
+
+        self._send_error(403, "Forbidden - origin mismatch")
         return False
 
     def _send_401(self) -> None:
@@ -197,14 +194,14 @@ class NeevHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         """Handle POST requests: login, file uploads, folder creation."""
+        if not self._check_origin():
+            return
+
         if self.config.auth_enabled and self.path == "/_neev/login":
             self._handle_login()
             return
 
         if not self._check_auth():
-            return
-
-        if not self._check_origin():
             return
 
         parsed = urlparse(self.path)
