@@ -7,6 +7,7 @@ is passed as the first argument.
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 from typing import TYPE_CHECKING
@@ -18,7 +19,10 @@ from neev.fs import (
     list_directory,
 )
 from neev.html import render_directory_listing
-from neev.zip import ZipSizeLimitError, create_zip_stream
+from neev.zip import ZipSizeLimitError, stream_zip
+
+
+logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
@@ -125,24 +129,10 @@ def serve_zip(
         return
 
     zip_name = (resolved.name or "root") + ".zip"
-    try:
-        stream = create_zip_stream(
-            directory=resolved,
-            base_dir=config.directory,
-            show_hidden=config.show_hidden,
-            max_size=config.max_zip_size,
-        )
-    except ZipSizeLimitError:
-        _send_error(handler, 413, "ZIP archive too large")
-        return
-
-    # Compute size by seeking to end — avoids getvalue() second copy.
-    size = stream.seek(0, 2)
-    stream.seek(0)
 
     handler.send_response(200)
     handler.send_header("Content-Type", "application/zip")
-    handler.send_header("Content-Length", str(size))
+    handler.send_header("Transfer-Encoding", "chunked")
     handler.send_header(
         "Content-Disposition",
         format_content_disposition("attachment", zip_name),
@@ -150,7 +140,17 @@ def serve_zip(
     if auth_enabled:
         handler.send_header("Cache-Control", "no-store")
     handler.end_headers()
-    shutil.copyfileobj(stream, handler.wfile)
+
+    try:
+        stream_zip(
+            handler.wfile,  # type: ignore[arg-type]
+            directory=resolved,
+            base_dir=config.directory,
+            show_hidden=config.show_hidden,
+            max_size=config.max_zip_size,
+        )
+    except ZipSizeLimitError:
+        logger.warning("ZIP stream aborted: exceeded max_zip_size=%d", config.max_zip_size)
 
 
 def _send_error(handler: BaseHTTPRequestHandler, code: int, message: str) -> None:
