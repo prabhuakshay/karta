@@ -26,6 +26,7 @@ _KEY_MAP = {
     "max-zip-size": "max_zip_size",
     "enable-upload": "enable_upload",
     "read-only": "read_only",
+    "public-url": "public_url",
 }
 
 
