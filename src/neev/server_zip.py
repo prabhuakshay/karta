@@ -18,6 +18,15 @@ if TYPE_CHECKING:
     from neev.server import NeevHandler
 
 
+def _is_unsafe_item(name: str) -> bool:
+    """Reject item names that contain path separators, traversal, or are empty."""
+    if not name or not name.strip():
+        return True
+    if "/" in name or "\\" in name:
+        return True
+    return name in {".", ".."}
+
+
 def _send_text(handler: BaseHTTPRequestHandler, status: int, message: bytes) -> None:
     """Send a plain-text error response."""
     handler.send_response(status)
@@ -27,7 +36,7 @@ def _send_text(handler: BaseHTTPRequestHandler, status: int, message: bytes) -> 
     handler.wfile.write(message)
 
 
-def serve_selective_zip(handler: "NeevHandler", request_path: str) -> None:
+def serve_selective_zip(handler: "NeevHandler", request_path: str) -> None:  # noqa: PLR0911 -- sequential input validation, each failure returns early
     """Handle a POST request to download selected items as a ZIP.
 
     Reads selected item names from the POST body (``items=name`` form fields),
@@ -58,6 +67,10 @@ def serve_selective_zip(handler: "NeevHandler", request_path: str) -> None:
 
     if not items:
         _send_text(handler, 400, b"No items selected")
+        return
+
+    if any(_is_unsafe_item(name) for name in items):
+        _send_text(handler, 400, b"Invalid item name")
         return
 
     resolved = resolve_safe_path(config.directory, request_path)
