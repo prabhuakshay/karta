@@ -270,3 +270,58 @@ class TestRunServer:
         ):
             run_server(config)
         mock_close.assert_called_once()
+
+
+# -- Query parameter matching (regression for #105) --------------------------
+
+
+@pytest.fixture
+def zip_enabled_server(serve_dir):
+    """Server with ZIP downloads enabled for testing ?zip query variants."""
+    cfg = Config(
+        directory=serve_dir,
+        host="127.0.0.1",
+        port=0,
+        username=None,
+        password=None,
+        show_hidden=False,
+        enable_zip_download=True,
+        max_zip_size=104857600,
+        enable_upload=False,
+    )
+    sessions = SessionStore()
+    handler = partial(NeevHandler, cfg, sessions, LoginRateLimiter())
+    httpd = HTTPServer(("127.0.0.1", 0), handler)
+    port = httpd.server_address[1]
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    yield f"http://127.0.0.1:{port}"
+    httpd.shutdown()
+    httpd.server_close()
+
+
+class TestQueryParamMatching:
+    """Before the fix, `parsed.query == 'zip'` required exact equality, so
+    adding cache-busting or unrelated params silently broke the feature."""
+
+    def test_zip_with_extra_param(self, zip_enabled_server):
+        status, headers, _ = _get(zip_enabled_server, "/subdir?zip&cachebust=1")
+        assert status == 200
+        assert "application/zip" in headers["Content-Type"]
+
+    def test_preview_markdown_with_extra_param(self, serve_dir, server):
+        (serve_dir / "doc.md").write_text("# Title\n\nBody")
+        status, headers, _ = _get(server, "/doc.md?preview&t=123")
+        assert status == 200
+        assert "text/html" in headers["Content-Type"]
+
+    def test_preview_image_with_extra_param(self, server):
+        """Generic preview wraps the file in an HTML viewer page."""
+        status, headers, _ = _get(server, "/image.png?preview&v=2")
+        assert status == 200
+        assert "text/html" in headers["Content-Type"]
+
+    def test_download_with_extra_param(self, server):
+        status, headers, _ = _get(server, "/hello.txt?download&bust=1")
+        assert status == 200
+        assert "attachment" in headers.get("Content-Disposition", "")

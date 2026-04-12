@@ -162,7 +162,7 @@ class NeevHandler(BaseHTTPRequestHandler):
 
         parsed = urlparse(self.path)
         request_path = unquote(parsed.path)
-        wants_zip = parsed.query == "zip"
+        query = parse_qs(parsed.query, keep_blank_values=True)
         resolved = resolve_safe_path(self.config.directory, request_path)
 
         if resolved is None:
@@ -175,7 +175,7 @@ class NeevHandler(BaseHTTPRequestHandler):
 
         auth = self.config.auth_enabled
 
-        if resolved.is_dir() and wants_zip:
+        if resolved.is_dir() and "zip" in query:
             serve_zip(self, self.config, resolved, auth_enabled=auth)
             return
 
@@ -183,17 +183,17 @@ class NeevHandler(BaseHTTPRequestHandler):
             serve_directory(self, self.config, request_path, resolved, auth_enabled=auth)
             return
 
-        if parsed.query == "preview" and is_markdown_file(resolved):
+        if "preview" in query and is_markdown_file(resolved):
             serve_markdown_preview(self, resolved, request_path)
             return
 
-        if parsed.query == "preview":
+        if "preview" in query:
             mime = get_mime_type(resolved)
             if is_previewable_type(mime):
                 serve_generic_preview(self, resolved, request_path, mime)
                 return
 
-        serve_file(self, resolved, force_download=parsed.query == "download", auth_enabled=auth)
+        serve_file(self, resolved, force_download="download" in query, auth_enabled=auth)
 
     def do_POST(self) -> None:
         """Handle POST requests: login, file uploads, folder creation."""
@@ -209,9 +209,9 @@ class NeevHandler(BaseHTTPRequestHandler):
 
         parsed = urlparse(self.path)
         request_path = unquote(parsed.path)
-        query = parse_qs(parsed.query)
+        query = parse_qs(parsed.query, keep_blank_values=True)
 
-        if parsed.query == "zip":
+        if "zip" in query:
             serve_selective_zip(self, request_path)
             return
 

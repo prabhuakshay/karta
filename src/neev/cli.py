@@ -4,6 +4,7 @@ import argparse
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 from neev.config import Config
 from neev.log import ansi_styled
@@ -248,7 +249,7 @@ def _print_startup_banner(config: Config) -> None:
         print(f"  banner:        {_on(config.banner)}")
 
 
-def _resolve(args: argparse.Namespace, attr: str) -> object:
+def _resolve(args: argparse.Namespace, attr: str) -> Any:
     """Return ``args.<attr>`` if set, otherwise the registered default."""
     value = getattr(args, attr)
     if value is None:
