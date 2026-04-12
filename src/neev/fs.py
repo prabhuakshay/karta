@@ -156,12 +156,15 @@ def list_directory(path: Path, show_hidden: bool) -> list[FileEntry]:
                 continue
             if not show_hidden and entry.name.startswith("."):
                 continue
+            # is_dir(follow_symlinks=False) uses scandir's cached d_type on
+            # POSIX — no syscall. Calling it before stat() means symlinks
+            # aren't stat'd twice (once for is_dir, once for size/mtime).
+            is_dir = entry.is_dir(follow_symlinks=False)
             try:
                 stat = entry.stat()
             except OSError:
                 logger.warning("skipping %s: stat() failed", entry.path)
                 continue
-            is_dir = entry.is_dir()
             entries.append(
                 FileEntry(
                     name=entry.name,
