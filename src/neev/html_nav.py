@@ -8,6 +8,7 @@ import html
 from pathlib import Path, PurePosixPath
 
 from neev.fs import FileEntry
+from neev.url_utils import encode_attr_url
 
 
 BACK_ICON = (
@@ -60,7 +61,7 @@ def render_breadcrumb_html(crumbs: list[tuple[str, str]]) -> str:
 
     for i, (label, href) in enumerate(crumbs):
         escaped_label = html.escape(label)
-        escaped_href = html.escape(href)
+        escaped_href = encode_attr_url(href)
 
         if i == last:
             parts.append(f'<span class="text-ink-800 font-semibold">{escaped_label}</span>')

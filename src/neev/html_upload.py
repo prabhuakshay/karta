@@ -4,9 +4,8 @@ Builds form HTML injected into the directory listing page when
 ``enable_upload`` is True. Matches Lumina theme styling.
 """
 
-import html
-
 from neev.html_upload_js import get_upload_script
+from neev.url_utils import encode_attr_url
 
 
 # -- SVG icons ----------------------------------------------------------------
@@ -81,8 +80,8 @@ def render_upload_section(request_path: str) -> str:
         HTML string — single card with drag-and-drop upload zone,
         file preview, and inline create-folder row.
     """
-    action = html.escape(request_path)
-    mkdir_action = html.escape(request_path.rstrip("/") + "/")
+    action = encode_attr_url(request_path)
+    mkdir_action = encode_attr_url(request_path.rstrip("/") + "/")
 
     return (
         # Single card wrapping everything
