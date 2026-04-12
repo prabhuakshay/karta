@@ -4,11 +4,27 @@ import argparse
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 from neev.config import Config
 from neev.log import ansi_styled
 from neev.server import run_server
 from neev.toml_config import load_toml, merge_toml_into_args
+
+
+# Real defaults live here (not on the parser). The parser uses ``None`` as a
+# sentinel so CLI-vs-TOML precedence can be resolved unambiguously: if an
+# attribute is ``None`` after parsing, the user did not pass that flag, and
+# TOML (or these defaults) may fill it in.
+_DEFAULTS = {
+    "host": "127.0.0.1",
+    "port": 8000,
+    "show_hidden": False,
+    "enable_zip_download": False,
+    "max_zip_size": 100,
+    "enable_upload": False,
+    "read_only": False,
+}
 
 
 def _print_error(message: str) -> None:
@@ -134,6 +150,10 @@ def _validate_port(value: str) -> int:
 def _build_parser() -> argparse.ArgumentParser:
     """Build the argparse parser with all neev CLI flags.
 
+    All optional flags default to ``None`` so a caller can distinguish "not
+    passed" from "passed with a value that happens to match the default".
+    Real defaults are applied in :func:`build_config` after TOML merging.
+
     Returns:
         A configured ``ArgumentParser``.
     """
@@ -150,13 +170,13 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--host",
-        default="127.0.0.1",
+        default=None,
         help="bind address (default: 127.0.0.1)",
     )
     parser.add_argument(
         "--port",
         "-p",
-        default=8000,
+        default=None,
         type=_validate_port,
         help="bind port (default: 8000)",
     )
@@ -167,32 +187,32 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--show-hidden",
-        action="store_true",
-        default=False,
-        help="show dotfiles and dotdirs in listings",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="show dotfiles, dotdirs, and neev.toml in listings",
     )
     parser.add_argument(
         "--enable-zip-download",
-        action="store_true",
-        default=False,
+        action=argparse.BooleanOptionalAction,
+        default=None,
         help="allow ZIP downloads of folders",
     )
     parser.add_argument(
         "--max-zip-size",
-        default=100,
+        default=None,
         type=int,
         help="maximum ZIP archive size in MB (default: 100)",
     )
     parser.add_argument(
         "--enable-upload",
-        action="store_true",
-        default=False,
+        action=argparse.BooleanOptionalAction,
+        default=None,
         help="allow file uploads",
     )
     parser.add_argument(
         "--read-only",
-        action="store_true",
-        default=False,
+        action=argparse.BooleanOptionalAction,
+        default=None,
         help="disable all write operations (overrides --enable-upload)",
     )
     parser.add_argument(
@@ -229,14 +249,23 @@ def _print_startup_banner(config: Config) -> None:
         print(f"  banner:        {_on(config.banner)}")
 
 
+def _resolve(args: argparse.Namespace, attr: str) -> Any:
+    """Return ``args.<attr>`` if set, otherwise the registered default."""
+    value = getattr(args, attr)
+    if value is None:
+        return _DEFAULTS[attr]
+    return value
+
+
 def build_config(args: argparse.Namespace, directory: Path) -> Config:
     """Resolve and validate parsed CLI arguments into a ``Config``.
 
-    Handles auth resolution (flag vs env var) and ``--read-only``
-    enforcement. The directory must already be validated and resolved.
+    Applies real defaults to any attribute still set to ``None`` after TOML
+    merging, handles auth resolution (flag vs env var), and enforces
+    ``--read-only``.
 
     Args:
-        args: Parsed CLI arguments from argparse.
+        args: Parsed CLI arguments (post-TOML-merge).
         directory: The validated, resolved directory to serve.
 
     Returns:
@@ -244,23 +273,24 @@ def build_config(args: argparse.Namespace, directory: Path) -> Config:
     """
     username, password = _resolve_auth(args)
 
-    if args.max_zip_size < 1:
+    max_zip_size = _resolve(args, "max_zip_size")
+    if max_zip_size < 1:
         _print_error("--max-zip-size must be at least 1 MB")
         raise SystemExit(1)
 
-    enable_upload = args.enable_upload
-    if args.read_only:
+    enable_upload = _resolve(args, "enable_upload")
+    if _resolve(args, "read_only"):
         enable_upload = False
 
     return Config(
         directory=directory,
-        host=args.host,
-        port=args.port,
+        host=_resolve(args, "host"),
+        port=_resolve(args, "port"),
         username=username,
         password=password,
-        show_hidden=args.show_hidden,
-        enable_zip_download=args.enable_zip_download,
-        max_zip_size=args.max_zip_size * 1024 * 1024,
+        show_hidden=_resolve(args, "show_hidden"),
+        enable_zip_download=_resolve(args, "enable_zip_download"),
+        max_zip_size=max_zip_size * 1024 * 1024,
         enable_upload=enable_upload,
         banner=args.banner,
     )
@@ -273,7 +303,7 @@ def main() -> None:
     directory = _validate_directory(args.directory)
     toml_data = load_toml(directory)
     if toml_data:
-        merge_toml_into_args(args, toml_data, parser)
+        merge_toml_into_args(args, toml_data)
     config = build_config(args, directory)
     _print_startup_banner(config)
     run_server(config)

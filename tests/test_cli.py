@@ -170,17 +170,20 @@ class TestValidatePort:
 
 
 class TestBuildParser:
-    def test_defaults(self):
+    def test_defaults_are_sentinels(self):
+        """All optional flags default to None so unset is distinguishable from passed."""
         parser = _build_parser()
         args = parser.parse_args([])
         assert args.directory == Path(".")
-        assert args.host == "127.0.0.1"
-        assert args.port == 8000
+        assert args.host is None
+        assert args.port is None
         assert args.auth is None
-        assert args.show_hidden is False
-        assert args.enable_zip_download is False
-        assert args.enable_upload is False
-        assert args.read_only is False
+        assert args.show_hidden is None
+        assert args.enable_zip_download is None
+        assert args.max_zip_size is None
+        assert args.enable_upload is None
+        assert args.read_only is None
+        assert args.banner is None
 
     def test_all_flags(self, tmp_path):
         parser = _build_parser()
@@ -296,6 +299,30 @@ class TestBuildConfig:
         ):
             build_config(args, tmp_path)
         assert "at least 1 MB" in capsys.readouterr().err
+
+    def test_defaults_applied_when_unset(self, tmp_path):
+        parser = _build_parser()
+        args = parser.parse_args([str(tmp_path)])
+        with patch.dict("os.environ", {}, clear=True):
+            config = build_config(args, tmp_path)
+        assert config.host == "127.0.0.1"
+        assert config.port == 8000
+        assert config.show_hidden is False
+        assert config.enable_zip_download is False
+        assert config.enable_upload is False
+        assert config.max_zip_size == 100 * 1024 * 1024
+
+    def test_cli_port_matching_default_still_wins_over_toml(self, tmp_path):
+        """Regression: --port 8000 must beat TOML port = 9000 (was broken — see #105)."""
+        (tmp_path / "neev.toml").write_text("port = 9000\n")
+        with (
+            patch("sys.argv", ["neev", str(tmp_path), "--port", "8000"]),
+            patch.dict("os.environ", {}, clear=True),
+            patch("neev.cli.run_server") as mock_server,
+        ):
+            main()
+        config = mock_server.call_args[0][0]
+        assert config.port == 8000
 
 
 # -- main -------------------------------------------------------------------
