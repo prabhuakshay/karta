@@ -11,6 +11,7 @@ from urllib.parse import quote
 
 from neev.fs import FileEntry, get_mime_type, is_markdown_file, is_previewable_type
 from neev.html_icons import icon_for_entry
+from neev.url_utils import quote_path
 
 
 _COPY_ICON = (
@@ -73,7 +74,7 @@ def entry_href(entry: FileEntry, request_path: str) -> str:
     Returns:
         URL-safe href string.
     """
-    base = request_path.rstrip("/") + "/"
+    base = quote_path(request_path.rstrip("/")) + "/"
     name = quote(entry.name, safe="")
     if entry.is_dir:
         return f"{base}{name}/"

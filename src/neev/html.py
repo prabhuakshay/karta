@@ -18,6 +18,7 @@ from neev.html_nav import (
 )
 from neev.html_page_template import PAGE_TEMPLATE
 from neev.html_upload import render_upload_section
+from neev.url_utils import encode_attr_url, js_string_escape
 
 
 # -- Select bar ---------------------------------------------------------------
@@ -106,7 +107,7 @@ def render_directory_listing(
     """
     breadcrumb_html = render_breadcrumb_html(build_breadcrumbs(path, base_dir))
     is_root = path == base_dir
-    parent_href = "" if is_root else html.escape(parent_link(request_path))
+    parent_href = "" if is_root else encode_attr_url(parent_link(request_path))
     summary = build_summary(entries)
     dir_name = html.escape(path.name or "/")
 
@@ -157,7 +158,8 @@ def render_directory_listing(
     select_bar_html = ""
     if enable_zip_download:
         raw = request_path.rstrip("/") + "/?zip" if request_path != "/" else "/?zip"
-        zip_href = html.escape(raw)
+        zip_href = encode_attr_url(raw)
+        zip_href_js = html.escape(js_string_escape(raw))
         zip_html = (
             f'<a href="{zip_href}" class="inline-flex items-center gap-2'
             " px-3.5 py-2 bg-surface-1 text-ink-700 text-sm font-semibold"
@@ -190,7 +192,7 @@ def render_directory_listing(
             ' M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>'
             '<span class="hidden sm:inline">Select</span></button>'
         )
-        select_bar_html = _render_select_bar(zip_href)
+        select_bar_html = _render_select_bar(zip_href_js)
 
     logout_html = ""
     if auth_enabled:
