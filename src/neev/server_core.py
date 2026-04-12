@@ -7,9 +7,10 @@ is passed as the first argument.
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, BinaryIO
 
 from neev.fs import (
     format_content_disposition,
@@ -18,7 +19,11 @@ from neev.fs import (
     list_directory,
 )
 from neev.html import render_directory_listing
-from neev.zip import ZipSizeLimitError, create_zip_stream
+from neev.server_utils import send_error
+from neev.zip import ZipSizeLimitError, stream_zip
+
+
+logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
@@ -46,7 +51,7 @@ def serve_file(
     try:
         f = path.open("rb")
     except OSError:
-        _send_error(handler, 404, "File not found")
+        send_error(handler, 404, "File not found")
         return
 
     try:
@@ -55,16 +60,93 @@ def serve_file(
         dtype = "attachment" if force_download or not is_previewable_type(mime_type) else "inline"
         disposition = format_content_disposition(dtype, path.name)
 
+        parsed = _parse_range(handler.headers.get("Range"), size)
+        if parsed is _RANGE_INVALID:
+            handler.send_response(416)
+            handler.send_header("Content-Range", f"bytes */{size}")
+            handler.send_header("Content-Length", "0")
+            handler.end_headers()
+            return
+
+        if parsed is not None:
+            start, end = parsed
+            length = end - start + 1
+            handler.send_response(206)
+            handler.send_header("Content-Type", mime_type)
+            handler.send_header("Content-Disposition", disposition)
+            handler.send_header("Content-Length", str(length))
+            handler.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+            handler.send_header("Accept-Ranges", "bytes")
+            if auth_enabled:
+                handler.send_header("Cache-Control", "no-store")
+            handler.end_headers()
+            f.seek(start)
+            _copy_range(f, handler.wfile, length)
+            return
+
         handler.send_response(200)
         handler.send_header("Content-Type", mime_type)
         handler.send_header("Content-Disposition", disposition)
         handler.send_header("Content-Length", str(size))
+        handler.send_header("Accept-Ranges", "bytes")
         if auth_enabled:
             handler.send_header("Cache-Control", "no-store")
         handler.end_headers()
         shutil.copyfileobj(f, handler.wfile, length=65536)
     finally:
         f.close()
+
+
+_RANGE_INVALID: tuple[int, int] = (-1, -1)
+
+
+def _parse_range(header: str | None, size: int) -> tuple[int, int] | None:  # noqa: PLR0911
+    """Parse a single-range ``Range: bytes=...`` header.
+
+    Returns ``None`` if no Range header was sent, ``(start, end)`` inclusive
+    for a valid range, or the ``_RANGE_INVALID`` sentinel if the header is
+    unsatisfiable (caller should respond 416).
+
+    Supports ``bytes=start-end``, ``bytes=start-``, and ``bytes=-suffix``.
+    Multi-range requests (comma-separated) are rejected as invalid —
+    single-range coverage is enough for video seek and resumed downloads.
+    """
+    if not header or not header.startswith("bytes="):
+        return None
+    spec = header[len("bytes=") :].strip()
+    if "," in spec:
+        return _RANGE_INVALID
+    if "-" not in spec:
+        return _RANGE_INVALID
+    start_s, end_s = spec.split("-", 1)
+    try:
+        if start_s == "":
+            suffix = int(end_s)
+            if suffix <= 0:
+                return _RANGE_INVALID
+            start = max(0, size - suffix)
+            end = size - 1
+        else:
+            start = int(start_s)
+            end = int(end_s) if end_s else size - 1
+    except ValueError:
+        return _RANGE_INVALID
+    if start < 0 or end < start or start >= size:
+        return _RANGE_INVALID
+    if end >= size:
+        end = size - 1
+    return start, end
+
+
+def _copy_range(src: BinaryIO, dst: BinaryIO, length: int, chunk_size: int = 65536) -> None:
+    """Copy ``length`` bytes from ``src`` to ``dst`` in chunks."""
+    remaining = length
+    while remaining > 0:
+        buf = src.read(min(chunk_size, remaining))
+        if not buf:
+            break
+        dst.write(buf)
+        remaining -= len(buf)
 
 
 def serve_directory(
@@ -75,15 +157,7 @@ def serve_directory(
     *,
     auth_enabled: bool = False,
 ) -> None:
-    """Serve an HTML directory listing.
-
-    Args:
-        handler: The active request handler.
-        config: The resolved server configuration.
-        request_path: The original URL path from the request.
-        resolved: Resolved path to the directory on disk.
-        auth_enabled: Whether to show the logout button and suppress caching.
-    """
+    """Serve an HTML directory listing."""
     entries = list_directory(resolved, config.show_hidden)
     page = render_directory_listing(
         path=resolved,
@@ -112,37 +186,23 @@ def serve_zip(
     *,
     auth_enabled: bool = False,
 ) -> None:
-    """Serve a ZIP archive of a directory's contents.
+    """Stream a ZIP archive of a directory's contents to the client.
 
-    Args:
-        handler: The active request handler.
-        config: The resolved server configuration.
-        resolved: Resolved path to the directory on disk.
-        auth_enabled: Whether to send ``Cache-Control: no-store``.
+    Headers are flushed up-front with ``Transfer-Encoding: chunked``, then
+    the archive is streamed directly into ``wfile``. If ``max_zip_size`` is
+    exceeded mid-stream, the response truncates and the event is logged —
+    at that point the client has already received a 200, so a 413 is not
+    possible.
     """
     if not config.enable_zip_download:
-        _send_error(handler, 403, "ZIP downloads are disabled")
+        send_error(handler, 403, "ZIP downloads are disabled")
         return
 
     zip_name = (resolved.name or "root") + ".zip"
-    try:
-        stream = create_zip_stream(
-            directory=resolved,
-            base_dir=config.directory,
-            show_hidden=config.show_hidden,
-            max_size=config.max_zip_size,
-        )
-    except ZipSizeLimitError:
-        _send_error(handler, 413, "ZIP archive too large")
-        return
-
-    # Compute size by seeking to end — avoids getvalue() second copy.
-    size = stream.seek(0, 2)
-    stream.seek(0)
 
     handler.send_response(200)
     handler.send_header("Content-Type", "application/zip")
-    handler.send_header("Content-Length", str(size))
+    handler.send_header("Transfer-Encoding", "chunked")
     handler.send_header(
         "Content-Disposition",
         format_content_disposition("attachment", zip_name),
@@ -150,14 +210,14 @@ def serve_zip(
     if auth_enabled:
         handler.send_header("Cache-Control", "no-store")
     handler.end_headers()
-    shutil.copyfileobj(stream, handler.wfile)
 
-
-def _send_error(handler: BaseHTTPRequestHandler, code: int, message: str) -> None:
-    """Send an error response with a plain-text body."""
-    body = message.encode()
-    handler.send_response(code)
-    handler.send_header("Content-Type", "text/plain; charset=utf-8")
-    handler.send_header("Content-Length", str(len(body)))
-    handler.end_headers()
-    handler.wfile.write(body)
+    try:
+        stream_zip(
+            handler.wfile,  # type: ignore[arg-type]
+            directory=resolved,
+            base_dir=config.directory,
+            show_hidden=config.show_hidden,
+            max_size=config.max_zip_size,
+        )
+    except ZipSizeLimitError:
+        logger.warning("ZIP stream aborted: exceeded max_zip_size=%d", config.max_zip_size)

@@ -138,8 +138,13 @@ class TestZipDownload:
         assert zf.testzip() is None
         assert "nested.txt" in zf.namelist()
 
-    def test_zip_too_large_returns_413(self, serve_dir):
-        """A tiny max_zip_size triggers a 413 response."""
+    def test_zip_too_large_truncates_stream(self, serve_dir):
+        """Exceeding max_zip_size mid-stream aborts the response.
+
+        Since the server streams with chunked transfer encoding, headers are
+        already flushed when the cap fires — the only signal available to the
+        client is a truncated body. Verify the archive is unreadable/incomplete.
+        """
         tiny_config = Config(
             directory=serve_dir,
             host="127.0.0.1",
@@ -153,9 +158,16 @@ class TestZipDownload:
         )
         httpd, base = _zip_server_for(tiny_config)
         try:
-            status, _, body = _get(base, "/?zip")
-            assert status == 413
-            assert b"too large" in body
+            try:
+                _, _, body = _get(base, "/?zip")
+            except Exception:
+                # Truncated chunked stream can surface as a client-side error;
+                # that's an acceptable signal that the cap fired.
+                return
+            # If the client accepted the truncated body, the archive must not
+            # be a valid readable ZIP.
+            with pytest.raises(zipfile.BadZipFile):
+                zipfile.ZipFile(BytesIO(body)).testzip()
         finally:
             httpd.shutdown()
             httpd.server_close()
@@ -271,7 +283,8 @@ class TestSelectiveZipDownload:
         assert b"Invalid Content-Length" in resp.read()
         conn.close()
 
-    def test_selective_zip_too_large_returns_413(self, serve_dir):
+    def test_selective_zip_too_large_truncates_stream(self, serve_dir):
+        """Headers are flushed before streaming; cap fires mid-stream → truncated body."""
         tiny_config = Config(
             directory=serve_dir,
             host="127.0.0.1",
@@ -285,9 +298,12 @@ class TestSelectiveZipDownload:
         )
         httpd, base = _zip_server_for(tiny_config)
         try:
-            status, _, body = _post(base, "/?zip", b"items=hello.txt")
-            assert status == 413
-            assert b"too large" in body
+            try:
+                _, _, body = _post(base, "/?zip", b"items=hello.txt")
+            except Exception:
+                return
+            with pytest.raises(zipfile.BadZipFile):
+                zipfile.ZipFile(BytesIO(body)).testzip()
         finally:
             httpd.shutdown()
             httpd.server_close()

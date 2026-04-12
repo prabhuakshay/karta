@@ -15,6 +15,9 @@ TOKEN_TTL = 86400  # 24 hours in seconds
 
 COOKIE_NAME = "neev_session"
 
+# Run opportunistic pruning every Nth validate() call.
+_VALIDATE_PRUNE_INTERVAL = 100
+
 
 # -- Credential validation ---------------------------------------------------
 
@@ -56,16 +59,7 @@ def check_basic_auth(
         return False
 
     username, password = decoded.split(":", maxsplit=1)
-
-    # Compare as bytes — hmac.compare_digest() rejects non-ASCII str
-    username_match = hmac.compare_digest(
-        username.encode("utf-8"), expected_username.encode("utf-8")
-    )
-    password_match = hmac.compare_digest(
-        password.encode("utf-8"), expected_password.encode("utf-8")
-    )
-
-    return username_match and password_match
+    return check_credentials(username, password, expected_username, expected_password)
 
 
 def check_credentials(
@@ -115,6 +109,7 @@ class SessionStore:
         self._lock = threading.Lock()
         # Maps token → monotonic creation timestamp.
         self._tokens: dict[str, float] = {}
+        self._validate_count = 0
 
     def create(self) -> str:
         """Create a new session token, pruning expired tokens first.
@@ -138,6 +133,9 @@ class SessionStore:
             ``True`` if the token exists and has not exceeded ``TOKEN_TTL``.
         """
         with self._lock:
+            self._validate_count += 1
+            if self._validate_count % _VALIDATE_PRUNE_INTERVAL == 0:
+                self._prune()
             created_at = self._tokens.get(token)
             if created_at is None:
                 return False
@@ -151,6 +149,7 @@ class SessionStore:
         """
         with self._lock:
             self._tokens.pop(token, None)
+            self._prune()
 
     def _prune(self) -> None:
         """Remove all tokens that have exceeded ``TOKEN_TTL``."""
@@ -219,11 +218,24 @@ class LoginRateLimiter:
         Args:
             ip: The client IP address.
         """
+        now = time.monotonic()
         with self._lock:
+            self._prune(now)
             record = self._attempts.get(ip)
             failures = (record[0] + 1) if record else 1
-            self._attempts[ip] = (failures, time.monotonic())
+            self._attempts[ip] = (failures, now)
         logger.warning("Failed login attempt %d from %s", failures, ip)
+
+    def _prune(self, now: float) -> None:
+        """Drop entries whose cooldown has fully elapsed.
+
+        Caller must hold ``self._lock``.
+        """
+        expired = [ip for ip, rec in self._attempts.items() if (now - rec[1]) >= MAX_COOLDOWN]
+        for ip in expired:
+            del self._attempts[ip]
+        if expired:
+            logger.debug("Pruned %d stale rate-limit entries", len(expired))
 
     def record_success(self, ip: str) -> None:
         """Clear the failure record for an IP after a successful login.
