@@ -59,6 +59,44 @@ class TestEntryHrefHtmlInjection:
         assert '"' not in href_val
 
 
+# -- Finding #5: CRLF in request_path returns 400 ---------------------------
+
+
+class TestCrlfRejected:
+    """Finding #5 — send_header does not validate CR/LF, enabling response splitting."""
+
+    def test_crlf_in_path_returns_400(self, tmp_path):
+        cfg = Config(
+            directory=tmp_path,
+            host="127.0.0.1",
+            port=0,
+            username=None,
+            password=None,
+            show_hidden=False,
+            enable_zip_download=False,
+            max_zip_size=104857600,
+            enable_upload=False,
+        )
+        sessions = SessionStore()
+        handler = partial(NeevHandler, cfg, sessions, LoginRateLimiter())
+        httpd = HTTPServer(("127.0.0.1", 0), handler)
+        port = httpd.server_address[1]
+        t = threading.Thread(target=httpd.serve_forever, daemon=True)
+        t.start()
+        try:
+            conn = http.client.HTTPConnection("127.0.0.1", port)
+            # %0d%0a decodes to CRLF
+            conn.request("GET", "/%0d%0aSet-Cookie:%20x=y")
+            resp = conn.getresponse()
+            resp.read()
+            assert resp.status == 400
+            # Ensure the injected header did not appear
+            assert resp.getheader("Set-Cookie") is None
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
+
+
 # -- Finding #4: upload redirect Location URL-encoded -----------------------
 
 

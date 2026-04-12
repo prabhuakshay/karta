@@ -23,6 +23,7 @@ from neev.server_preview import serve_generic_preview, serve_markdown_preview
 from neev.server_upload import serve_mkdir, serve_upload
 from neev.server_utils import send_error
 from neev.server_zip import serve_selective_zip
+from neev.url_utils import is_valid_header_value
 
 
 # -- Request handler -------------------------------------------------------
@@ -139,7 +140,7 @@ class NeevHandler(BaseHTTPRequestHandler):
 
     # -- Routing -------------------------------------------------------------
 
-    def do_GET(self) -> None:  # noqa: PLR0911 -- router: each branch is a distinct route
+    def do_GET(self) -> None:  # noqa: PLR0911,PLR0912 -- router: each branch is a distinct route
         """Handle GET requests: auth pages, files, directories, static."""
         if self.config.auth_enabled and self.path == "/_neev/login":
             self._serve_login_page()
@@ -162,6 +163,9 @@ class NeevHandler(BaseHTTPRequestHandler):
 
         parsed = urlparse(self.path)
         request_path = unquote(parsed.path)
+        if not is_valid_header_value(request_path):
+            self._send_error(400, "Bad Request")
+            return
         wants_zip = parsed.query == "zip"
         resolved = resolve_safe_path(self.config.directory, request_path)
 
@@ -209,6 +213,9 @@ class NeevHandler(BaseHTTPRequestHandler):
 
         parsed = urlparse(self.path)
         request_path = unquote(parsed.path)
+        if not is_valid_header_value(request_path):
+            self._send_error(400, "Bad Request")
+            return
         query = parse_qs(parsed.query)
 
         if parsed.query == "zip":

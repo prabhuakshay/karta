@@ -182,16 +182,14 @@ class TestZipDownload:
             httpd.server_close()
 
     def test_zip_filename_sanitizes_newlines(self, serve_dir, zip_config):
-        """Directory name with newlines must not enable HTTP header injection."""
+        """A decoded CRLF in request_path is rejected at the handler entry (#101)."""
         bad_name = "inject\nExtra-Header"
         (serve_dir / bad_name).mkdir()
         httpd, base = _zip_server_for(zip_config)
         try:
             status, headers, _ = _get(base, f"/{quote(bad_name, safe='')}/?zip")
-            assert status == 200
-            disposition = headers["Content-Disposition"]
-            assert "\n" not in disposition
-            assert "\r" not in disposition
+            assert status == 400
+            assert headers.get("Extra-Header") is None
         finally:
             httpd.shutdown()
             httpd.server_close()
