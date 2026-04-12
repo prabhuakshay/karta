@@ -13,6 +13,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 TOML_FILENAME = "neev.toml"
 
 # Keys that neev.toml must never override (security-sensitive).
@@ -50,30 +51,26 @@ def load_toml(directory: Path) -> dict[str, Any]:
     return data
 
 
-def merge_toml_into_args(
-    args: argparse.Namespace, toml_data: dict[str, Any], parser: argparse.ArgumentParser
-) -> None:
+def merge_toml_into_args(args: argparse.Namespace, toml_data: dict[str, Any]) -> None:
     """Apply toml values to argparse namespace where CLI didn't override.
 
     CLI arguments take precedence. A toml value is only applied if the
-    CLI argument still has its default value.
+    corresponding attribute is ``None`` (i.e. the user did not pass that
+    flag). This relies on the CLI parser using ``None`` as the default
+    sentinel for every optional flag; real defaults are applied later by
+    :func:`neev.cli.build_config`.
 
     Args:
         args: The parsed CLI arguments (modified in place).
         toml_data: The dictionary loaded from ``neev.toml``.
-        parser: The argument parser (used to look up default values).
     """
-    defaults = parser.parse_args([])
-
     for toml_key, value in toml_data.items():
         attr = _KEY_MAP.get(toml_key) or toml_key
         if attr in _DENIED_KEYS:
             logger.warning("ignoring denied config key in neev.toml: %s", toml_key)
             continue
-        if not hasattr(defaults, attr):
+        if not hasattr(args, attr):
             logger.warning("unknown config key in neev.toml: %s", toml_key)
             continue
-        current = getattr(args, attr)
-        default = getattr(defaults, attr)
-        if current == default:
+        if getattr(args, attr) is None:
             setattr(args, attr, value)
