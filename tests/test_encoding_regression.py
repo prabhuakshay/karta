@@ -21,7 +21,7 @@ from neev.fs import FileEntry
 from neev.html_entries import entry_href, render_entry_row
 from neev.html_nav import render_breadcrumb_html
 from neev.server import NeevHandler
-from neev.server_preview import serve_generic_preview
+from neev.server_preview import serve_generic_preview, serve_markdown_preview
 
 
 def _file(name: str, is_dir: bool = False) -> FileEntry:
@@ -57,6 +57,80 @@ class TestEntryHrefHtmlInjection:
         assert m is not None
         href_val = m.group(1)
         assert '"' not in href_val
+
+
+# -- Finding #6: </script> in paths must not break preview pages ------------
+
+
+class TestScriptSafeInlinedJson:
+    """Finding #6 — json.dumps inlined in <script> did not escape </script>."""
+
+    def test_markdown_preview_escapes_script_close(self, tmp_path):
+        hostile = tmp_path / "hostile.md"
+        hostile.write_text("# hi")
+
+        class _Stub:
+            def __init__(self):
+                self.body = b""
+
+            def send_response(self, s):
+                pass
+
+            def send_header(self, k, v):
+                pass
+
+            def end_headers(self):
+                pass
+
+            class _W:
+                def __init__(self, parent):
+                    self.parent = parent
+
+                def write(self, b):
+                    self.parent.body += b
+
+            @property
+            def wfile(self):
+                return self._W(self)
+
+        h = _Stub()
+        serve_markdown_preview(h, hostile, "/a</script>.md")  # type: ignore[arg-type]
+        # The literal </script> sequence must not appear inside a JSON string
+        # context (i.e. not preceded by the HTML-escape) — inside the inline
+        # <script> block, < must have been escaped as \u003c.
+        assert b"\\u003c" in h.body
+
+    def test_text_preview_escapes_script_close(self, tmp_path):
+        hostile = tmp_path / "hostile.txt"
+        hostile.write_text("x")
+
+        class _Stub:
+            def __init__(self):
+                self.body = b""
+
+            def send_response(self, s):
+                pass
+
+            def send_header(self, k, v):
+                pass
+
+            def end_headers(self):
+                pass
+
+            class _W:
+                def __init__(self, parent):
+                    self.parent = parent
+
+                def write(self, b):
+                    self.parent.body += b
+
+            @property
+            def wfile(self):
+                return self._W(self)
+
+        h = _Stub()
+        serve_generic_preview(h, hostile, "/a</script>.txt", "text/plain")  # type: ignore[arg-type]
+        assert b"\\u003c" in h.body
 
 
 # -- Finding #5: CRLF in request_path returns 400 ---------------------------
