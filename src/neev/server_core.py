@@ -18,6 +18,7 @@ from neev.fs import (
     list_directory,
 )
 from neev.html import render_directory_listing
+from neev.server_utils import send_error
 from neev.zip import ZipSizeLimitError, create_zip_stream
 
 
@@ -46,7 +47,7 @@ def serve_file(
     try:
         f = path.open("rb")
     except OSError:
-        _send_error(handler, 404, "File not found")
+        send_error(handler, 404, "File not found")
         return
 
     try:
@@ -121,7 +122,7 @@ def serve_zip(
         auth_enabled: Whether to send ``Cache-Control: no-store``.
     """
     if not config.enable_zip_download:
-        _send_error(handler, 403, "ZIP downloads are disabled")
+        send_error(handler, 403, "ZIP downloads are disabled")
         return
 
     zip_name = (resolved.name or "root") + ".zip"
@@ -133,7 +134,7 @@ def serve_zip(
             max_size=config.max_zip_size,
         )
     except ZipSizeLimitError:
-        _send_error(handler, 413, "ZIP archive too large")
+        send_error(handler, 413, "ZIP archive too large")
         return
 
     # Compute size by seeking to end — avoids getvalue() second copy.
@@ -151,13 +152,3 @@ def serve_zip(
         handler.send_header("Cache-Control", "no-store")
     handler.end_headers()
     shutil.copyfileobj(stream, handler.wfile)
-
-
-def _send_error(handler: BaseHTTPRequestHandler, code: int, message: str) -> None:
-    """Send an error response with a plain-text body."""
-    body = message.encode()
-    handler.send_response(code)
-    handler.send_header("Content-Type", "text/plain; charset=utf-8")
-    handler.send_header("Content-Length", str(len(body)))
-    handler.end_headers()
-    handler.wfile.write(body)
