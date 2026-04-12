@@ -45,13 +45,14 @@ class TestBuildConfig:
         assert config.username == "user"
         assert config.password == "pass"
 
-    def test_auth_from_env(self, tmp_path):
+    def test_auth_env_is_ignored(self, tmp_path):
+        """NEEV_AUTH was removed in the 3-source config model; env must not leak in."""
         parser = _build_parser()
         args = parser.parse_args([str(tmp_path)])
         with patch.dict("os.environ", {"NEEV_AUTH": "envuser:envpass"}):
             config = build_config(args, tmp_path.resolve())
-        assert config.username == "envuser"
-        assert config.password == "envpass"
+        assert config.username is None
+        assert config.password is None
 
 
 # -- main -------------------------------------------------------------------
