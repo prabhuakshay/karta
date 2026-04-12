@@ -1,6 +1,7 @@
 import threading
+import time
 from functools import partial
-from http.server import HTTPServer
+from http.server import ThreadingHTTPServer
 from unittest.mock import patch
 from urllib.request import Request, urlopen
 
@@ -48,7 +49,8 @@ def server(config):
     """Start a real HTTP server on a random port, yield base URL, shut down after."""
     sessions = SessionStore()
     handler = partial(NeevHandler, config, sessions, LoginRateLimiter())
-    httpd = HTTPServer(("127.0.0.1", 0), handler)
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    httpd.daemon_threads = True
     port = httpd.server_address[1]
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
@@ -260,13 +262,36 @@ class TestFavicon:
 
 class TestRunServer:
     def test_keyboard_interrupt_shuts_down(self, config):
-        with patch.object(HTTPServer, "serve_forever", side_effect=KeyboardInterrupt):
+        with patch.object(ThreadingHTTPServer, "serve_forever", side_effect=KeyboardInterrupt):
             run_server(config)
 
     def test_server_close_called(self, config):
         with (
-            patch.object(HTTPServer, "serve_forever", side_effect=KeyboardInterrupt),
-            patch.object(HTTPServer, "server_close") as mock_close,
+            patch.object(ThreadingHTTPServer, "serve_forever", side_effect=KeyboardInterrupt),
+            patch.object(ThreadingHTTPServer, "server_close") as mock_close,
         ):
             run_server(config)
         mock_close.assert_called_once()
+
+
+class TestConcurrency:
+    def test_slow_request_does_not_block_others(self, server, serve_dir):
+        big = serve_dir / "big.bin"
+        big.write_bytes(b"x" * (2 * 1024 * 1024))
+
+        results: list[tuple[str, float]] = []
+
+        def hit(label, path):
+            start = time.monotonic()
+            _get(server, path)
+            results.append((label, time.monotonic() - start))
+
+        slow = threading.Thread(target=hit, args=("slow", "/big.bin"))
+        slow.start()
+        time.sleep(0.01)
+        fast_start = time.monotonic()
+        _get(server, "/hello.txt")
+        fast_elapsed = time.monotonic() - fast_start
+        slow.join(timeout=5)
+
+        assert fast_elapsed < 1.0

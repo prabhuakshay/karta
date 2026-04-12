@@ -2,7 +2,7 @@
 
 import sys
 from functools import partial
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -43,7 +43,7 @@ class NeevHandler(BaseHTTPRequestHandler):
         rate_limiter: LoginRateLimiter,
         request: Any,
         client_address: Any,
-        server: HTTPServer,
+        server: ThreadingHTTPServer,
     ) -> None:
         """Initialize handler with injected config and session store.
 
@@ -53,7 +53,7 @@ class NeevHandler(BaseHTTPRequestHandler):
             rate_limiter: Shared rate limiter for login attempts.
             request: The incoming socket request.
             client_address: The ``(host, port)`` of the client.
-            server: The parent ``HTTPServer`` instance.
+            server: The parent ``ThreadingHTTPServer`` instance.
         """
         self.config = config
         self.sessions = sessions
@@ -289,7 +289,8 @@ def run_server(config: Config) -> None:
     sessions = SessionStore()
     rate_limiter = LoginRateLimiter()
     handler = partial(NeevHandler, config, sessions, rate_limiter)
-    server = HTTPServer((config.host, config.port), handler)
+    server = ThreadingHTTPServer((config.host, config.port), handler)
+    server.daemon_threads = True
     try:
         server.serve_forever()
     except KeyboardInterrupt:
