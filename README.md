@@ -141,6 +141,7 @@ neev [DIRECTORY] [OPTIONS]
 | `--enable-upload` / `--no-enable-upload` | off | Allow multipart file uploads from the browser. |
 | `--read-only` / `--no-read-only` | off | Force-disable uploads (overrides `--enable-upload`). |
 | `--banner TEXT` | _(none)_ | Message displayed at the top of directory listings. |
+| `--public-url URL` | _(none)_ | External base URL when running behind a reverse proxy. Equivalent to `NEEV_PUBLIC_URL` env var. |
 | `-h`, `--help` | — | Show help and exit. |
 
 All boolean flags use `argparse.BooleanOptionalAction`, so `--no-<flag>` works too — useful for overriding `neev.toml` from the CLI.
@@ -191,6 +192,7 @@ banner = "Build artifacts — ask #devops for access"
 | `enable-upload` | bool | Same as `--enable-upload`. |
 | `read-only` | bool | Same as `--read-only`. |
 | `banner` | string | Same as `--banner`. |
+| `public-url` | string | Same as `--public-url`. |
 
 **Denied keys:** `directory` is never read from TOML (the served directory is always set by CLI, to avoid surprise path changes).
 
@@ -205,8 +207,9 @@ The `neev.toml` file itself is hidden from listings unless `--show-hidden` is se
 | Variable | Purpose |
 |----------|---------|
 | `NEEV_AUTH` | Credentials as `user:pass`. Alternative to `--auth`. |
+| `NEEV_PUBLIC_URL` | External base URL. Alternative to `--public-url`. |
 
-`--auth` beats `NEEV_AUTH` when both are set.
+`--auth` beats `NEEV_AUTH` when both are set. `--public-url` beats `NEEV_PUBLIC_URL`.
 
 ---
 
@@ -396,8 +399,11 @@ share.example.com {
 ```
 
 ```bash
-neev /srv/share --auth alice:s3cret --enable-zip-download
+neev /srv/share --auth alice:s3cret --enable-zip-download \
+    --public-url https://share.example.com
 ```
+
+Pass `--public-url` (or set `NEEV_PUBLIC_URL`) so the startup banner and any server-generated absolute URLs use the externally reachable URL rather than the `127.0.0.1:8000` bind address.
 
 ### Systemd service
 
