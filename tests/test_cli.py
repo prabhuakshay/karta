@@ -81,22 +81,16 @@ class TestParseAuth:
 class TestResolveAuth:
     def test_no_auth_returns_none(self):
         args = argparse.Namespace(auth=None)
-        with patch.dict("os.environ", {}, clear=True):
-            assert _resolve_auth(args) == (None, None)
+        assert _resolve_auth(args) == (None, None)
 
-    def test_flag_takes_precedence_over_env(self):
+    def test_flag_value_parsed(self):
         args = argparse.Namespace(auth="cli:pass")
-        with patch.dict("os.environ", {"NEEV_AUTH": "env:pass"}):
-            assert _resolve_auth(args) == ("cli", "pass")
+        assert _resolve_auth(args) == ("cli", "pass")
 
-    def test_env_var_fallback(self):
+    def test_env_var_is_ignored(self):
+        """NEEV_AUTH was removed in the 3-source config model; env must not leak in."""
         args = argparse.Namespace(auth=None)
         with patch.dict("os.environ", {"NEEV_AUTH": "envuser:envpass"}):
-            assert _resolve_auth(args) == ("envuser", "envpass")
-
-    def test_empty_env_var_returns_none(self):
-        args = argparse.Namespace(auth=None)
-        with patch.dict("os.environ", {"NEEV_AUTH": ""}):
             assert _resolve_auth(args) == (None, None)
 
 

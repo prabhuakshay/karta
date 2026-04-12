@@ -1,7 +1,6 @@
 """CLI argument parsing and entry point for neev."""
 
 import argparse
-import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -10,7 +9,13 @@ from urllib.parse import urlparse
 from neev.config import Config
 from neev.log import ansi_styled
 from neev.server import run_server
-from neev.toml_config import load_toml, merge_toml_into_args
+from neev.toml_config import (
+    TOML_FILENAME,
+    load_toml,
+    load_user_toml,
+    merge_toml_into_args,
+    user_config_path,
+)
 
 
 # Real defaults live here (not on the parser). The parser uses ``None`` as a
@@ -41,26 +46,12 @@ def _print_error(message: str) -> None:
 
 
 def _on(label: str) -> str:
-    """Format an enabled feature label in green.
-
-    Args:
-        label: The enabled-state text (e.g. ``"enabled"``).
-
-    Returns:
-        Green-styled text.
-    """
+    """Format an enabled feature label in green."""
     return ansi_styled(label, "32", stream=sys.stdout)
 
 
 def _off(label: str) -> str:
-    """Format a disabled feature label in dim gray.
-
-    Args:
-        label: The disabled-state text (e.g. ``"disabled"``).
-
-    Returns:
-        Dim-styled text.
-    """
+    """Format a disabled feature label in dim gray."""
     return ansi_styled(label, "2", stream=sys.stdout)
 
 
@@ -87,20 +78,17 @@ def _parse_auth(auth_string: str) -> tuple[str, str]:
 
 
 def _resolve_auth(args: argparse.Namespace) -> tuple[str | None, str | None]:
-    """Resolve auth credentials from CLI flag or environment variable.
-
-    ``--auth`` takes precedence over the ``NEEV_AUTH`` environment variable.
+    """Resolve auth credentials from args (CLI flag or merged TOML value).
 
     Args:
-        args: Parsed CLI arguments.
+        args: Parsed CLI arguments (post-TOML-merge).
 
     Returns:
         A ``(username, password)`` tuple, or ``(None, None)`` if no auth is configured.
     """
-    auth_string = args.auth or os.environ.get("NEEV_AUTH")
-    if not auth_string:
+    if not args.auth:
         return None, None
-    return _parse_auth(auth_string)
+    return _parse_auth(args.auth)
 
 
 def _validate_public_url(raw: str) -> str:
@@ -142,12 +130,7 @@ def _validate_public_url(raw: str) -> str:
 
 
 def _resolve_public_url(args: argparse.Namespace) -> str | None:
-    """Resolve the public URL from CLI flag, env var, or return ``None``.
-
-    ``--public-url`` takes precedence over ``NEEV_PUBLIC_URL``. TOML
-    merging has already folded any ``public-url`` key into ``args`` by
-    the time this runs, so the CLI value may in fact have come from
-    TOML — precedence is enforced at merge time.
+    """Resolve the public URL from args, or return ``None`` if unset.
 
     Args:
         args: Parsed CLI arguments (post-TOML-merge).
@@ -155,10 +138,9 @@ def _resolve_public_url(args: argparse.Namespace) -> str | None:
     Returns:
         The validated URL, or ``None`` if unset.
     """
-    raw = args.public_url or os.environ.get("NEEV_PUBLIC_URL")
-    if not raw:
+    if not args.public_url:
         return None
-    return _validate_public_url(raw)
+    return _validate_public_url(args.public_url)
 
 
 def _validate_directory(directory: Path) -> Path:
@@ -242,7 +224,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--auth",
         default=None,
-        help="credentials as 'user:pass' (or set NEEV_AUTH env var)",
+        help="credentials as 'user:pass'",
     )
     parser.add_argument(
         "--show-hidden",
@@ -282,16 +264,18 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--public-url",
         default=None,
-        help="external base URL for neev behind a reverse proxy (or set NEEV_PUBLIC_URL env var)",
+        help="external base URL for neev behind a reverse proxy",
     )
     return parser
 
 
-def _print_startup_banner(config: Config) -> None:
+def _print_startup_banner(config: Config, loaded_configs: list[Path] | None = None) -> None:
     """Print a human-readable summary of the resolved configuration.
 
     Args:
         config: The resolved server configuration.
+        loaded_configs: Paths of any ``neev.toml`` files that contributed
+            values, in precedence order (local before user).
     """
     bind_url = f"http://{config.host}:{config.port}"
     directory = ansi_styled(str(config.directory), "1", stream=sys.stdout)
@@ -317,6 +301,9 @@ def _print_startup_banner(config: Config) -> None:
     print(f"  hidden files:  {hidden_status}")
     if config.banner:
         print(f"  banner:        {_on(config.banner)}")
+    if loaded_configs:
+        paths = ", ".join(str(p) for p in loaded_configs)
+        print(f"  config:        {ansi_styled(paths, '2', stream=sys.stdout)}")
 
 
 def _resolve(args: argparse.Namespace, attr: str) -> Any:
@@ -331,8 +318,7 @@ def build_config(args: argparse.Namespace, directory: Path) -> Config:
     """Resolve and validate parsed CLI arguments into a ``Config``.
 
     Applies real defaults to any attribute still set to ``None`` after TOML
-    merging, handles auth resolution (flag vs env var), and enforces
-    ``--read-only``.
+    merging, resolves auth, and enforces ``--read-only``.
 
     Args:
         args: Parsed CLI arguments (post-TOML-merge).
@@ -368,13 +354,26 @@ def build_config(args: argparse.Namespace, directory: Path) -> Config:
 
 
 def main() -> None:
-    """Entry point for the neev CLI."""
+    """Entry point for the neev CLI.
+
+    Config precedence (highest wins): CLI flags, then local ``neev.toml``
+    in the served directory, then user-level ``neev.toml`` in the platform
+    config dir, then hardcoded defaults.
+    """
     parser = _build_parser()
     args = parser.parse_args()
     directory = _validate_directory(args.directory)
-    toml_data = load_toml(directory)
-    if toml_data:
-        merge_toml_into_args(args, toml_data)
+
+    loaded: list[Path] = []
+    local_data = load_toml(directory)
+    if local_data:
+        merge_toml_into_args(args, local_data)
+        loaded.append(directory / TOML_FILENAME)
+    user_data = load_user_toml()
+    if user_data:
+        merge_toml_into_args(args, user_data)
+        loaded.append(user_config_path())
+
     config = build_config(args, directory)
-    _print_startup_banner(config)
+    _print_startup_banner(config, loaded)
     run_server(config)

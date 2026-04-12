@@ -134,14 +134,14 @@ neev [DIRECTORY] [OPTIONS]
 |------|---------|-------------|
 | `--host HOST` | `127.0.0.1` | Address to bind. Use `0.0.0.0` to expose on LAN. |
 | `--port PORT`, `-p PORT` | `8000` | TCP port (1–65535). |
-| `--auth USER:PASS` | _(none)_ | Enable HTTP Basic Auth. Equivalent to `NEEV_AUTH` env var. |
+| `--auth USER:PASS` | _(none)_ | Enable HTTP Basic Auth. |
 | `--show-hidden` / `--no-show-hidden` | off | Show dotfiles and `neev.toml` in listings. |
 | `--enable-zip-download` / `--no-enable-zip-download` | off | Allow folders to be downloaded as streamed ZIP. |
 | `--max-zip-size MB` | `100` | Maximum ZIP archive size in MB. Rejected if exceeded. |
 | `--enable-upload` / `--no-enable-upload` | off | Allow multipart file uploads from the browser. |
 | `--read-only` / `--no-read-only` | off | Force-disable uploads (overrides `--enable-upload`). |
 | `--banner TEXT` | _(none)_ | Message displayed at the top of directory listings. |
-| `--public-url URL` | _(none)_ | External base URL when running behind a reverse proxy. Equivalent to `NEEV_PUBLIC_URL` env var. |
+| `--public-url URL` | _(none)_ | External base URL when running behind a reverse proxy. |
 | `-h`, `--help` | — | Show help and exit. |
 
 All boolean flags use `argparse.BooleanOptionalAction`, so `--no-<flag>` works too — useful for overriding `neev.toml` from the CLI.
@@ -163,7 +163,15 @@ neev ./data --enable-zip-download --max-zip-size 500
 
 ## Configuration File (`neev.toml`)
 
-neev looks for a `neev.toml` file **in the served directory** and merges it with CLI args. CLI flags always win.
+neev reads `neev.toml` from **two locations**:
+
+1. **Local** — `neev.toml` in the served directory. Project-specific settings.
+2. **User** — per-user defaults at:
+   - `$XDG_CONFIG_HOME/neev/neev.toml` if `XDG_CONFIG_HOME` is set, or
+   - `%APPDATA%\neev\neev.toml` on Windows, or
+   - `~/.config/neev/neev.toml` elsewhere (Linux, macOS, BSD).
+
+Both files use the same schema. A missing file is silently skipped; a malformed file logs a warning and is ignored.
 
 ### Example
 
@@ -200,27 +208,28 @@ banner = "Build artifacts — ask #devops for access"
 
 The `neev.toml` file itself is hidden from listings unless `--show-hidden` is set.
 
----
+### Credentials in user config
 
-## Environment Variables
+`~/.config/neev/neev.toml` is the intended home for per-user credentials (`auth = "user:pass"`). It's in your home directory — chmod it to `600` so other users on the machine can't read it:
 
-| Variable | Purpose |
-|----------|---------|
-| `NEEV_AUTH` | Credentials as `user:pass`. Alternative to `--auth`. |
-| `NEEV_PUBLIC_URL` | External base URL. Alternative to `--public-url`. |
+```bash
+chmod 600 ~/.config/neev/neev.toml
+```
 
-`--auth` beats `NEEV_AUTH` when both are set. `--public-url` beats `NEEV_PUBLIC_URL`.
+neev does not read any `NEEV_*` environment variables. Flags, local `neev.toml`, and user `neev.toml` are the only config sources.
 
 ---
 
 ## Configuration Precedence
 
-From highest to lowest:
+From highest to lowest — later sources only fill in values the earlier ones left unset:
 
 1. **CLI flags** (explicit `--foo bar`)
-2. **`NEEV_AUTH`** env var (auth only)
-3. **`neev.toml`** in the served directory
+2. **Local `neev.toml`** in the served directory
+3. **User `neev.toml`** at `~/.config/neev/neev.toml` (or XDG / `%APPDATA%` equivalent)
 4. **Built-in defaults** (see CLI reference table)
+
+The startup banner prints every `neev.toml` that contributed values, so you can always see where a setting came from.
 
 ---
 
@@ -403,7 +412,7 @@ neev /srv/share --auth alice:s3cret --enable-zip-download \
     --public-url https://share.example.com
 ```
 
-Pass `--public-url` (or set `NEEV_PUBLIC_URL`) so the startup banner and any server-generated absolute URLs use the externally reachable URL rather than the `127.0.0.1:8000` bind address.
+Pass `--public-url` so the startup banner and any server-generated absolute URLs use the externally reachable URL rather than the `127.0.0.1:8000` bind address.
 
 ### Systemd service
 
@@ -414,8 +423,7 @@ Description=neev file server
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/neev /srv/share --host 127.0.0.1 --port 8000 --enable-zip-download
-Environment=NEEV_AUTH=alice:s3cret
+ExecStart=/usr/local/bin/neev /srv/share --host 127.0.0.1 --port 8000 --auth alice:s3cret --enable-zip-download
 Restart=on-failure
 User=neev
 
@@ -526,7 +534,7 @@ uv build                    # produces sdist + wheel in dist/
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
 | `Address already in use` | Port taken | Pick a different `--port` or kill the prior process. |
-| Browser keeps re-prompting for password | Wrong credentials or auth off on restart | Verify `--auth` / `NEEV_AUTH`, clear browser cache. |
+| Browser keeps re-prompting for password | Wrong credentials or auth off on restart | Verify `--auth` or the `auth` key in your local/user `neev.toml`, clear browser cache. |
 | `403 Forbidden` on a file that exists | Path-traversal guard / symlink escape | The file isn't inside the served directory's real path. |
 | ZIP download returns `413` | Folder exceeds `--max-zip-size` | Raise the cap or download individual files. |
 | Uploads return `405` | `--enable-upload` not set, or `--read-only` on | Enable uploads and disable read-only. |

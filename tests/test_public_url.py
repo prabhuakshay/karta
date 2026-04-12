@@ -1,4 +1,4 @@
-"""Tests for the --public-url flag, NEEV_PUBLIC_URL env var, and TOML key."""
+"""Tests for the --public-url flag and its TOML key."""
 
 from unittest.mock import patch
 
@@ -68,19 +68,13 @@ class TestPublicUrlParsing:
 
 
 class TestPublicUrlPrecedence:
-    def test_env_var(self, tmp_path):
+    def test_env_var_is_ignored(self, tmp_path):
+        """NEEV_PUBLIC_URL was removed in the 3-source config model; env must not leak in."""
         parser = _build_parser()
         args = parser.parse_args([str(tmp_path)])
         with patch.dict("os.environ", {"NEEV_PUBLIC_URL": "https://env.example.com"}):
             config = build_config(args, tmp_path.resolve())
-        assert config.public_url == "https://env.example.com"
-
-    def test_cli_overrides_env(self, tmp_path):
-        parser = _build_parser()
-        args = parser.parse_args([str(tmp_path), "--public-url", "https://cli.example.com"])
-        with patch.dict("os.environ", {"NEEV_PUBLIC_URL": "https://env.example.com"}):
-            config = build_config(args, tmp_path.resolve())
-        assert config.public_url == "https://cli.example.com"
+        assert config.public_url is None
 
     def test_toml_applied_when_cli_unset(self, tmp_path):
         parser = _build_parser()

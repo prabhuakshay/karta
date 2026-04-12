@@ -9,7 +9,8 @@ Target users are developers sharing build artifacts, teams on a local network, a
 - **Project type**: CLI (`--app --package` with `src/` layout and `[project.scripts]` entry point)
 - **Zero dependencies**: stdlib only — `argparse` for CLI, `http.server` for serving, `zipfile` for folder downloads, `html` for escaping, `base64` for auth
 - **Why stdlib**: the tool should be as lightweight and portable as possible. No virtualenv needed to run it, no supply chain risk
-- **Auth**: HTTP Basic Auth. Credentials via `--auth user:pass` CLI flag or `NEEV_AUTH` env var. Constant-time comparison with `hmac.compare_digest`
+- **Auth**: HTTP Basic Auth. Credentials via `--auth user:pass` flag, or the `auth` key in local `neev.toml` or user `neev.toml` (`~/.config/neev/neev.toml`). No env vars. Constant-time comparison with `hmac.compare_digest`
+- **Config sources**: exactly three, in precedence order — CLI flags > local `neev.toml` > user `neev.toml` (resolved via XDG / `%APPDATA%` / `~/.config`). No env vars, intentionally — neev is not designed for container/CI deploys
 - **Secure defaults**: localhost-only binding, no uploads, no hidden files, no ZIP downloads unless explicitly opted in
 
 ## Domain Concepts
