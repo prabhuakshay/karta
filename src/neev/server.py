@@ -114,14 +114,14 @@ class NeevHandler(BaseHTTPRequestHandler):
 
         parts = urlsplit(source)
         if not parts.scheme or not parts.netloc:
-            self._send_error(400, "Bad Request - malformed Origin/Referer")
+            send_error(self,400, "Bad Request - malformed Origin/Referer")
             return False
 
         host = self.headers.get("Host", "")
         if parts.netloc == host:
             return True
 
-        self._send_error(403, "Forbidden - origin mismatch")
+        send_error(self,403, "Forbidden - origin mismatch")
         return False
 
     def _send_401(self) -> None:
