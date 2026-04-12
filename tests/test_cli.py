@@ -4,18 +4,14 @@ from unittest.mock import patch
 
 import pytest
 
-from neev.cli import (
-    _build_parser,
-    _off,
-    _on,
+from neev.cli import _build_parser, main
+from neev.cli_banner import _off, _on, _print_error, _print_startup_banner
+from neev.cli_validators import (
     _parse_auth,
-    _print_error,
-    _print_startup_banner,
     _resolve_auth,
     _validate_directory,
     _validate_port,
     build_config,
-    main,
 )
 from neev.config import Config
 

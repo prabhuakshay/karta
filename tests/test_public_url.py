@@ -4,7 +4,9 @@ from unittest.mock import patch
 
 import pytest
 
-from neev.cli import _build_parser, _print_startup_banner, build_config
+from neev.cli import _build_parser
+from neev.cli_banner import _print_startup_banner
+from neev.cli_validators import build_config
 from neev.toml_config import merge_toml_into_args
 
 
