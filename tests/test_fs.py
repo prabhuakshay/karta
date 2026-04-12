@@ -247,3 +247,16 @@ class TestFormatContentDisposition:
         ascii_part = result.split("filename*")[0]
         assert "\r" not in ascii_part
         assert "\n" not in ascii_part
+
+
+# -- _HIDDEN_FILES (neev.toml is always hidden) ------------------------------
+
+
+class TestNeevTomlHidden:
+    def test_neev_toml_excluded_even_with_show_hidden(self, tmp_path):
+        (tmp_path / "neev.toml").write_text("[neev]")
+        (tmp_path / "visible.txt").write_text("hello")
+        entries = list_directory(tmp_path, show_hidden=True)
+        names = [e.name for e in entries]
+        assert "neev.toml" not in names
+        assert "visible.txt" in names
