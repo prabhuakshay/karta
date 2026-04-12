@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
+    from io import BufferedIOBase
     from pathlib import Path
 
     from neev.config import Config
@@ -138,7 +139,7 @@ def _parse_range(header: str | None, size: int) -> tuple[int, int] | None:  # no
     return start, end
 
 
-def _copy_range(src: BinaryIO, dst: BinaryIO, length: int, chunk_size: int = 65536) -> None:
+def _copy_range(src: BinaryIO, dst: BufferedIOBase, length: int, chunk_size: int = 65536) -> None:
     """Copy ``length`` bytes from ``src`` to ``dst`` in chunks."""
     remaining = length
     while remaining > 0:
@@ -213,7 +214,7 @@ def serve_zip(
 
     try:
         stream_zip(
-            handler.wfile,  # type: ignore[arg-type]
+            handler.wfile,
             directory=resolved,
             base_dir=config.directory,
             show_hidden=config.show_hidden,

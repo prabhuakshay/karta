@@ -13,12 +13,19 @@ import logging
 import os
 import zipfile
 from pathlib import Path
-from typing import BinaryIO
+from typing import Protocol
 
 from neev.fs import resolve_safe_path
 
 
 logger = logging.getLogger(__name__)
+
+
+class _Writable(Protocol):
+    """Minimal file-like writer interface used by ZIP streaming."""
+
+    def write(self, data: bytes, /) -> int: ...
+    def flush(self) -> None: ...
 
 
 class ZipSizeLimitError(Exception):
@@ -34,7 +41,7 @@ class _SizeTrackingWriter:
     ``max_size``.
     """
 
-    def __init__(self, wfile: BinaryIO, max_size: int) -> None:
+    def __init__(self, wfile: _Writable, max_size: int) -> None:
         self._wfile = wfile
         self._max_size = max_size
         self._written = 0
@@ -70,7 +77,7 @@ class _ChunkedWriter:
     terminator and must not appear mid-stream).
     """
 
-    def __init__(self, wfile: BinaryIO) -> None:
+    def __init__(self, wfile: _Writable) -> None:
         self._wfile = wfile
 
     def write(self, data: bytes) -> int:
@@ -169,7 +176,7 @@ def _selected_entries(
 
 
 def write_zip(
-    out: BinaryIO,
+    out: _Writable,
     directory: Path,
     base_dir: Path,
     show_hidden: bool,
@@ -188,7 +195,7 @@ def write_zip(
 
 
 def write_selective_zip(
-    out: BinaryIO,
+    out: _Writable,
     directory: Path,
     items: list[str],
     base_dir: Path,
@@ -202,7 +209,7 @@ def write_selective_zip(
 
 
 def stream_zip(
-    wfile: BinaryIO,
+    wfile: _Writable,
     directory: Path,
     base_dir: Path,
     show_hidden: bool,
@@ -218,13 +225,13 @@ def stream_zip(
     """
     chunked = _ChunkedWriter(wfile)
     try:
-        write_zip(chunked, directory, base_dir, show_hidden, max_size)  # type: ignore[arg-type]
+        write_zip(chunked, directory, base_dir, show_hidden, max_size)
     finally:
         chunked.close()
 
 
 def stream_selective_zip(
-    wfile: BinaryIO,
+    wfile: _Writable,
     directory: Path,
     items: list[str],
     base_dir: Path,
@@ -234,6 +241,6 @@ def stream_selective_zip(
     """Stream a selective ZIP into ``wfile`` using HTTP chunked transfer encoding."""
     chunked = _ChunkedWriter(wfile)
     try:
-        write_selective_zip(chunked, directory, items, base_dir, show_hidden, max_size)  # type: ignore[arg-type]
+        write_selective_zip(chunked, directory, items, base_dir, show_hidden, max_size)
     finally:
         chunked.close()
