@@ -84,7 +84,7 @@ def serve_selective_zip(handler: "NeevHandler", request_path: str) -> None:
 
     try:
         stream_selective_zip(
-            handler.wfile,  # type: ignore[arg-type]
+            handler.wfile,
             directory=resolved,
             items=items,
             base_dir=config.directory,
