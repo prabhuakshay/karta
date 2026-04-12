@@ -4,13 +4,16 @@ Handles POST requests with selected item names, creates a ZIP of those items,
 and streams it to the client.
 """
 
-import shutil
+import logging
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, unquote
 
 from neev.fs import format_content_disposition, resolve_safe_path
 from neev.server_utils import send_error
-from neev.zip import ZipSizeLimitError, create_selective_zip_stream
+from neev.zip import ZipSizeLimitError, stream_selective_zip
+
+
+logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
@@ -27,15 +30,14 @@ def _is_unsafe_item(name: str) -> bool:
     return name in {".", ".."}
 
 
-def serve_selective_zip(handler: "NeevHandler", request_path: str) -> None:  # noqa: PLR0911 -- sequential input validation, each failure returns early
-    """Handle a POST request to download selected items as a ZIP.
+def serve_selective_zip(handler: "NeevHandler", request_path: str) -> None:
+    """Handle a POST request to stream selected items as a ZIP.
 
-    Reads selected item names from the POST body (``items=name`` form fields),
-    creates a ZIP containing only those items, and streams it.
-
-    Args:
-        handler: The HTTP request handler.
-        request_path: The URL-decoded request path.
+    Reads selected item names from the POST body (``items=name`` form fields)
+    and streams a ZIP of those items. Headers are flushed up-front with
+    ``Transfer-Encoding: chunked``; if ``max_zip_size`` is exceeded mid-stream,
+    the response truncates and the event is logged (a 413 isn't possible
+    after headers have been sent).
     """
     config: Config = handler.config
     if not config.enable_zip_download:
@@ -70,8 +72,19 @@ def serve_selective_zip(handler: "NeevHandler", request_path: str) -> None:  # n
         return
 
     zip_name = (resolved.name or "root") + "-selected.zip"
+
+    handler.send_response(200)
+    handler.send_header("Content-Type", "application/zip")
+    handler.send_header("Transfer-Encoding", "chunked")
+    handler.send_header(
+        "Content-Disposition",
+        format_content_disposition("attachment", zip_name),
+    )
+    handler.end_headers()
+
     try:
-        stream = create_selective_zip_stream(
+        stream_selective_zip(
+            handler.wfile,  # type: ignore[arg-type]
             directory=resolved,
             items=items,
             base_dir=config.directory,
@@ -79,18 +92,4 @@ def serve_selective_zip(handler: "NeevHandler", request_path: str) -> None:  # n
             max_size=config.max_zip_size,
         )
     except ZipSizeLimitError:
-        send_error(handler, 413, b"ZIP archive too large")
-        return
-
-    size = stream.seek(0, 2)
-    stream.seek(0)
-
-    handler.send_response(200)
-    handler.send_header("Content-Type", "application/zip")
-    handler.send_header("Content-Length", str(size))
-    handler.send_header(
-        "Content-Disposition",
-        format_content_disposition("attachment", zip_name),
-    )
-    handler.end_headers()
-    shutil.copyfileobj(stream, handler.wfile)
+        logger.warning("selective ZIP aborted: exceeded max_zip_size=%d", config.max_zip_size)

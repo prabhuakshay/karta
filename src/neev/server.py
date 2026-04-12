@@ -2,7 +2,7 @@
 
 import sys
 from functools import partial
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse, urlsplit
 
@@ -43,7 +43,7 @@ class NeevHandler(BaseHTTPRequestHandler):
         rate_limiter: LoginRateLimiter,
         request: Any,
         client_address: Any,
-        server: HTTPServer,
+        server: ThreadingHTTPServer,
     ) -> None:
         """Initialize handler with injected config and session store.
 
@@ -53,7 +53,7 @@ class NeevHandler(BaseHTTPRequestHandler):
             rate_limiter: Shared rate limiter for login attempts.
             request: The incoming socket request.
             client_address: The ``(host, port)`` of the client.
-            server: The parent ``HTTPServer`` instance.
+            server: The parent ``ThreadingHTTPServer`` instance.
         """
         self.config = config
         self.sessions = sessions
@@ -114,14 +114,14 @@ class NeevHandler(BaseHTTPRequestHandler):
 
         parts = urlsplit(source)
         if not parts.scheme or not parts.netloc:
-            send_error(self,400, "Bad Request - malformed Origin/Referer")
+            send_error(self, 400, "Bad Request - malformed Origin/Referer")
             return False
 
         host = self.headers.get("Host", "")
         if parts.netloc == host:
             return True
 
-        send_error(self,403, "Forbidden - origin mismatch")
+        send_error(self, 403, "Forbidden - origin mismatch")
         return False
 
     def _send_401(self) -> None:
@@ -253,7 +253,8 @@ def run_server(config: Config) -> None:
     sessions = SessionStore()
     rate_limiter = LoginRateLimiter()
     handler = partial(NeevHandler, config, sessions, rate_limiter)
-    server = HTTPServer((config.host, config.port), handler)
+    server = ThreadingHTTPServer((config.host, config.port), handler)
+    server.daemon_threads = True
     try:
         server.serve_forever()
     except KeyboardInterrupt:

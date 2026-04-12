@@ -1,6 +1,7 @@
 """Tests that fill remaining coverage gaps across modules."""
 
 import base64
+import io
 import threading
 import zipfile
 from functools import partial
@@ -14,7 +15,14 @@ from neev.auth import LoginRateLimiter, SessionStore
 from neev.config import Config
 from neev.html_markdown import render_markdown_preview
 from neev.server import NeevHandler
-from neev.zip import create_selective_zip_stream
+from neev.zip import write_selective_zip
+
+
+def _selective_bytes(directory, items, base_dir, *, show_hidden, max_size):
+    buf = io.BytesIO()
+    write_selective_zip(buf, directory, items, base_dir, show_hidden, max_size)
+    buf.seek(0)
+    return buf
 
 
 # -- Fixtures ----------------------------------------------------------------
@@ -324,7 +332,7 @@ class TestSelectiveZipHiddenFiltering:
         (tmp_path / "sub" / ".hidden_dir").mkdir()
         (tmp_path / "sub" / ".hidden_dir" / "x.txt").write_text("x")
 
-        data = create_selective_zip_stream(
+        data = _selective_bytes(
             tmp_path, ["sub"], tmp_path, show_hidden=False, max_size=100_000_000
         )
         zf = zipfile.ZipFile(data)
@@ -337,16 +345,14 @@ class TestSelectiveZipHiddenFiltering:
         (tmp_path / "sub").mkdir()
         (tmp_path / "sub" / ".dot").write_text("d")
 
-        data = create_selective_zip_stream(
-            tmp_path, ["sub"], tmp_path, show_hidden=True, max_size=100_000_000
-        )
+        data = _selective_bytes(tmp_path, ["sub"], tmp_path, show_hidden=True, max_size=100_000_000)
         zf = zipfile.ZipFile(data)
         assert "sub/.dot" in zf.namelist()
 
     def test_select_nonexistent_item_skipped(self, tmp_path):
 
         (tmp_path / "real.txt").write_text("r")
-        data = create_selective_zip_stream(
+        data = _selective_bytes(
             tmp_path,
             ["real.txt", "nonexistent.txt"],
             tmp_path,
