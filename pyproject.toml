@@ -114,6 +114,7 @@ ignore = [
 # CLI entry points use print() as primary output
 "src/neev/__init__.py" = ["T20"]
 "src/neev/cli.py" = ["T20"]
+"src/neev/cli_banner.py" = ["T20"]
 "src/neev/__main__.py" = ["T20"]
 "src/neev/server.py" = ["T20", "ARG002"]
 

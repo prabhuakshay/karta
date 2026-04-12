@@ -2,7 +2,8 @@
 
 from unittest.mock import patch
 
-from neev.cli import _build_parser, build_config, main
+from neev.cli import _build_parser, main
+from neev.cli_validators import build_config
 
 
 # -- build_config -----------------------------------------------------------
