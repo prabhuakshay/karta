@@ -59,9 +59,9 @@ def server(config):
     httpd.server_close()
 
 
-def _get(url, path="/"):
+def _get(url, path="/", headers=None):
     """Make a GET request and return (status, headers, body)."""
-    req = Request(f"{url}{path}")
+    req = Request(f"{url}{path}", headers=headers or {})
     try:
         resp = urlopen(req)
         return resp.status, dict(resp.headers), resp.read()
@@ -295,3 +295,52 @@ class TestConcurrency:
         slow.join(timeout=5)
 
         assert fast_elapsed < 1.0
+
+
+class TestRangeRequests:
+    def test_accept_ranges_advertised_on_200(self, server):
+        _, headers, _ = _get(server, "/hello.txt")
+        assert headers.get("Accept-Ranges") == "bytes"
+
+    def test_range_returns_206_with_slice(self, server):
+        # "hello world" → bytes 6-10 == "world"
+        status, headers, body = _get(server, "/hello.txt", headers={"Range": "bytes=6-10"})
+        assert status == 206
+        assert body == b"world"
+        assert headers["Content-Range"] == "bytes 6-10/11"
+        assert headers["Content-Length"] == "5"
+        assert headers["Accept-Ranges"] == "bytes"
+
+    def test_range_open_ended(self, server):
+        status, headers, body = _get(server, "/hello.txt", headers={"Range": "bytes=6-"})
+        assert status == 206
+        assert body == b"world"
+        assert headers["Content-Range"] == "bytes 6-10/11"
+
+    def test_range_suffix(self, server):
+        status, headers, body = _get(server, "/hello.txt", headers={"Range": "bytes=-5"})
+        assert status == 206
+        assert body == b"world"
+        assert headers["Content-Range"] == "bytes 6-10/11"
+
+    def test_range_out_of_bounds_returns_416(self, server):
+        status, headers, _ = _get(server, "/hello.txt", headers={"Range": "bytes=100-200"})
+        assert status == 416
+        assert headers["Content-Range"] == "bytes */11"
+
+    def test_range_end_clamped_to_size(self, server):
+        status, _, body = _get(server, "/hello.txt", headers={"Range": "bytes=0-9999"})
+        assert status == 206
+        assert body == b"hello world"
+
+    def test_range_multi_rejected(self, server):
+        status, _, _ = _get(server, "/hello.txt", headers={"Range": "bytes=0-1,3-4"})
+        assert status == 416
+
+    def test_invalid_range_header_rejected(self, server):
+        status, _, _ = _get(server, "/hello.txt", headers={"Range": "bytes=abc-xyz"})
+        assert status == 416
+
+    def test_no_range_header_returns_200(self, server):
+        status, _, _ = _get(server, "/hello.txt")
+        assert status == 200
