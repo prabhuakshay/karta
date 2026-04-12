@@ -114,14 +114,14 @@ class NeevHandler(BaseHTTPRequestHandler):
 
         parts = urlsplit(source)
         if not parts.scheme or not parts.netloc:
-            self._send_error(400, "Bad Request - malformed Origin/Referer")
+            send_error(self,400, "Bad Request - malformed Origin/Referer")
             return False
 
         host = self.headers.get("Host", "")
         if parts.netloc == host:
             return True
 
-        self._send_error(403, "Forbidden - origin mismatch")
+        send_error(self,403, "Forbidden - origin mismatch")
         return False
 
     def _send_401(self) -> None:
@@ -139,11 +139,11 @@ class NeevHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: PLR0911 -- router: each branch is a distinct route
         """Handle GET requests: auth pages, files, directories, static."""
         if self.config.auth_enabled and self.path == "/_neev/login":
-            self._serve_login_page()
+            serve_login_page(self)
             return
 
         if self.config.auth_enabled and self.path == "/_neev/logout":
-            self._handle_logout()
+            handle_logout(self, self.sessions)
             return
 
         if not self._check_auth():
@@ -163,11 +163,11 @@ class NeevHandler(BaseHTTPRequestHandler):
         resolved = resolve_safe_path(self.config.directory, request_path)
 
         if resolved is None:
-            self._send_error(403, "Forbidden")
+            send_error(self, 403, "Forbidden")
             return
 
         if not resolved.exists():
-            self._send_error(404, "Not Found")
+            send_error(self, 404, "Not Found")
             return
 
         auth = self.config.auth_enabled
@@ -198,7 +198,7 @@ class NeevHandler(BaseHTTPRequestHandler):
             return
 
         if self.config.auth_enabled and self.path == "/_neev/login":
-            self._handle_login()
+            handle_login(self, self.config, self.sessions, self.rate_limiter)
             return
 
         if not self._check_auth():
@@ -213,34 +213,10 @@ class NeevHandler(BaseHTTPRequestHandler):
             return
 
         if "mkdir" in query:
-            self._handle_mkdir(request_path, query)
+            serve_mkdir(self, self.config.directory, self.config.enable_upload, request_path, query)
             return
 
-        self._handle_upload(request_path)
-
-    # -- Auth pages ----------------------------------------------------------
-
-    def _serve_login_page(self, error: str | None = None) -> None:
-        """Serve the login form page."""
-        serve_login_page(self, error)
-
-    def _handle_login(self) -> None:
-        """Process a login form POST and set a session cookie on success."""
-        handle_login(self, self.config, self.sessions, self.rate_limiter)
-
-    def _handle_logout(self) -> None:
-        """Invalidate the session and redirect to the login page."""
-        handle_logout(self, self.sessions)
-
-    # -- Uploads -------------------------------------------------------------
-
-    def _handle_upload(self, request_path: str) -> None:
-        """Handle a file upload POST request."""
         serve_upload(self, self.config.directory, self.config.enable_upload, request_path)
-
-    def _handle_mkdir(self, request_path: str, query: dict[str, list[str]]) -> None:
-        """Handle a create-folder POST request."""
-        serve_mkdir(self, self.config.directory, self.config.enable_upload, request_path, query)
 
     # -- Helpers -------------------------------------------------------------
 
@@ -249,15 +225,6 @@ class NeevHandler(BaseHTTPRequestHandler):
         self.send_response(303)
         self.send_header("Location", location)
         self.end_headers()
-
-    def _cache_header(self) -> None:
-        """Set Cache-Control: no-store when auth is enabled."""
-        if self.config.auth_enabled:
-            self.send_header("Cache-Control", "no-store")
-
-    def _send_error(self, code: int, message: str) -> None:
-        """Send an error response with a plain-text body."""
-        send_error(self, code, message)
 
     # -- Logging -------------------------------------------------------------
 
@@ -270,7 +237,7 @@ class NeevHandler(BaseHTTPRequestHandler):
         status = status_color(int(code)) if str(code).isdigit() else str(code)
         print(f"  {method} {path} {status}", file=sys.stderr)
 
-    def log_message(self, format: str, *args: object) -> None:  # noqa: A002
+    def log_message(self, format: str, *args: object) -> None:  # noqa: A002 -- signature mandated by BaseHTTPRequestHandler.log_message
         """Suppress default BaseHTTPRequestHandler logging."""
 
 

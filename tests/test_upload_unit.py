@@ -8,13 +8,15 @@ import pytest
 from neev.upload import (
     MAX_UPLOAD_SIZE,
     UploadError,
-    _extract_boundary,
-    _MultipartStream,
-    _parse_content_disposition,
     _sanitize_relative_path,
     handle_create_folder,
     handle_upload,
     sanitize_filename,
+)
+from neev.upload_multipart import (
+    _extract_boundary,
+    _MultipartStream,
+    _parse_content_disposition,
 )
 
 

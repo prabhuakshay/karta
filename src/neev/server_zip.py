@@ -5,11 +5,11 @@ and streams it to the client.
 """
 
 import shutil
-from http.server import BaseHTTPRequestHandler
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, unquote
 
 from neev.fs import format_content_disposition, resolve_safe_path
+from neev.server_utils import send_error
 from neev.zip import ZipSizeLimitError, create_selective_zip_stream
 
 
@@ -27,15 +27,6 @@ def _is_unsafe_item(name: str) -> bool:
     return name in {".", ".."}
 
 
-def _send_text(handler: BaseHTTPRequestHandler, status: int, message: bytes) -> None:
-    """Send a plain-text error response."""
-    handler.send_response(status)
-    handler.send_header("Content-Type", "text/plain; charset=utf-8")
-    handler.send_header("Content-Length", str(len(message)))
-    handler.end_headers()
-    handler.wfile.write(message)
-
-
 def serve_selective_zip(handler: "NeevHandler", request_path: str) -> None:  # noqa: PLR0911 -- sequential input validation, each failure returns early
     """Handle a POST request to download selected items as a ZIP.
 
@@ -48,17 +39,17 @@ def serve_selective_zip(handler: "NeevHandler", request_path: str) -> None:  # n
     """
     config: Config = handler.config
     if not config.enable_zip_download:
-        _send_text(handler, 403, b"ZIP downloads are disabled")
+        send_error(handler, 403, b"ZIP downloads are disabled")
         return
 
     try:
         content_length = int(handler.headers.get("Content-Length", 0))
     except ValueError:
-        _send_text(handler, 400, b"Invalid Content-Length")
+        send_error(handler, 400, b"Invalid Content-Length")
         return
 
     if content_length <= 0 or content_length > 65536:
-        _send_text(handler, 400, b"Invalid request body")
+        send_error(handler, 400, b"Invalid request body")
         return
 
     raw_body = handler.rfile.read(content_length).decode("utf-8", errors="replace")
@@ -66,16 +57,16 @@ def serve_selective_zip(handler: "NeevHandler", request_path: str) -> None:  # n
     items = [unquote(i) for i in parsed.get("items", [])]
 
     if not items:
-        _send_text(handler, 400, b"No items selected")
+        send_error(handler, 400, b"No items selected")
         return
 
     if any(_is_unsafe_item(name) for name in items):
-        _send_text(handler, 400, b"Invalid item name")
+        send_error(handler, 400, b"Invalid item name")
         return
 
     resolved = resolve_safe_path(config.directory, request_path)
     if resolved is None or not resolved.is_dir():
-        _send_text(handler, 404, b"Directory not found")
+        send_error(handler, 404, b"Directory not found")
         return
 
     zip_name = (resolved.name or "root") + "-selected.zip"
@@ -88,7 +79,7 @@ def serve_selective_zip(handler: "NeevHandler", request_path: str) -> None:  # n
             max_size=config.max_zip_size,
         )
     except ZipSizeLimitError:
-        _send_text(handler, 413, b"ZIP archive too large")
+        send_error(handler, 413, b"ZIP archive too large")
         return
 
     size = stream.seek(0, 2)
