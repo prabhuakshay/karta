@@ -4,7 +4,7 @@ One test class per finding. Covers the behaviors listed in the issue's
 acceptance criteria.
 """
 
-import http.client  # noqa: F401
+import http.client
 import re
 import threading
 from datetime import UTC, datetime
@@ -57,6 +57,52 @@ class TestEntryHrefHtmlInjection:
         assert m is not None
         href_val = m.group(1)
         assert '"' not in href_val
+
+
+# -- Finding #4: upload redirect Location URL-encoded -----------------------
+
+
+class TestUploadRedirectLocation:
+    """Finding #4 — Location header contained decoded path verbatim."""
+
+    def test_mkdir_redirect_location_url_encoded(self, tmp_path):
+        (tmp_path / "has space").mkdir()
+        cfg = Config(
+            directory=tmp_path,
+            host="127.0.0.1",
+            port=0,
+            username=None,
+            password=None,
+            show_hidden=False,
+            enable_zip_download=False,
+            max_zip_size=104857600,
+            enable_upload=True,
+        )
+        sessions = SessionStore()
+        handler = partial(NeevHandler, cfg, sessions, LoginRateLimiter())
+        httpd = HTTPServer(("127.0.0.1", 0), handler)
+        port = httpd.server_address[1]
+        t = threading.Thread(target=httpd.serve_forever, daemon=True)
+        t.start()
+        try:
+            conn = http.client.HTTPConnection("127.0.0.1", port)
+            conn.request(
+                "POST",
+                "/has%20space/?mkdir=new",
+                headers={
+                    "Origin": f"http://127.0.0.1:{port}",
+                    "Host": f"127.0.0.1:{port}",
+                },
+            )
+            resp = conn.getresponse()
+            resp.read()
+            assert resp.status == 303
+            location = resp.getheader("Location") or ""
+            assert "%20" in location
+            assert " " not in location
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
 
 
 # -- Finding #3: selective zip item name decoding ---------------------------

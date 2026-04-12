@@ -11,6 +11,7 @@ from pathlib import Path
 from neev.fs import resolve_safe_path
 from neev.server_utils import send_error
 from neev.upload import MAX_UPLOAD_SIZE, UploadError, handle_create_folder, handle_upload
+from neev.url_utils import is_valid_header_value, quote_path
 
 
 def serve_upload(
@@ -101,6 +102,10 @@ def serve_mkdir(
 
 
 def _redirect(handler: BaseHTTPRequestHandler, location: str) -> None:
+    encoded = quote_path(location)
+    if not is_valid_header_value(encoded):
+        send_error(handler, 400, "Invalid redirect target")
+        return
     handler.send_response(303)
-    handler.send_header("Location", location)
+    handler.send_header("Location", encoded)
     handler.end_headers()
