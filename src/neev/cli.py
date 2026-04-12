@@ -5,6 +5,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from neev.config import Config
 from neev.log import ansi_styled
@@ -100,6 +101,64 @@ def _resolve_auth(args: argparse.Namespace) -> tuple[str | None, str | None]:
     if not auth_string:
         return None, None
     return _parse_auth(auth_string)
+
+
+def _validate_public_url(raw: str) -> str:
+    """Validate a public URL and strip any trailing slash.
+
+    Accepts ``http://`` or ``https://`` URLs with a non-empty host. An
+    optional path is allowed (for subpath mounts behind a proxy); query
+    strings and fragments are rejected as they don't make sense as a
+    base URL.
+
+    Args:
+        raw: The user-supplied URL string.
+
+    Returns:
+        The validated URL with any trailing slash stripped.
+
+    Raises:
+        SystemExit: If the URL is invalid.
+    """
+    candidate = raw.strip()
+    if not candidate:
+        _print_error("--public-url cannot be empty")
+        raise SystemExit(1)
+    try:
+        parsed = urlparse(candidate)
+    except ValueError:
+        _print_error(f"invalid --public-url '{raw}'")
+        raise SystemExit(1) from None
+    if parsed.scheme not in ("http", "https"):
+        _print_error(f"--public-url must start with http:// or https:// (got '{raw}')")
+        raise SystemExit(1)
+    if not parsed.netloc:
+        _print_error(f"--public-url is missing a host (got '{raw}')")
+        raise SystemExit(1)
+    if parsed.query or parsed.fragment:
+        _print_error(f"--public-url must not contain a query or fragment (got '{raw}')")
+        raise SystemExit(1)
+    return candidate.rstrip("/")
+
+
+def _resolve_public_url(args: argparse.Namespace) -> str | None:
+    """Resolve the public URL from CLI flag, env var, or return ``None``.
+
+    ``--public-url`` takes precedence over ``NEEV_PUBLIC_URL``. TOML
+    merging has already folded any ``public-url`` key into ``args`` by
+    the time this runs, so the CLI value may in fact have come from
+    TOML — precedence is enforced at merge time.
+
+    Args:
+        args: Parsed CLI arguments (post-TOML-merge).
+
+    Returns:
+        The validated URL, or ``None`` if unset.
+    """
+    raw = args.public_url or os.environ.get("NEEV_PUBLIC_URL")
+    if not raw:
+        return None
+    return _validate_public_url(raw)
 
 
 def _validate_directory(directory: Path) -> Path:
@@ -220,6 +279,11 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="message to display at the top of directory listings",
     )
+    parser.add_argument(
+        "--public-url",
+        default=None,
+        help="external base URL for neev behind a reverse proxy (or set NEEV_PUBLIC_URL env var)",
+    )
     return parser
 
 
@@ -229,7 +293,7 @@ def _print_startup_banner(config: Config) -> None:
     Args:
         config: The resolved server configuration.
     """
-    url = ansi_styled(f"http://{config.host}:{config.port}", "1;36", stream=sys.stdout)
+    bind_url = f"http://{config.host}:{config.port}"
     directory = ansi_styled(str(config.directory), "1", stream=sys.stdout)
     serving = ansi_styled("Serving", "1;36", stream=sys.stdout)
 
@@ -239,7 +303,13 @@ def _print_startup_banner(config: Config) -> None:
     hidden_status = _on("visible") if config.show_hidden else _off("hidden")
 
     print(f"{serving} {directory}")
-    print(f"  {url}")
+    if config.public_url and config.public_url != bind_url:
+        public = ansi_styled(config.public_url, "1;36", stream=sys.stdout)
+        bound = ansi_styled(f"(bound to {bind_url})", "2", stream=sys.stdout)
+        print(f"  {public}")
+        print(f"  {bound}")
+    else:
+        print(f"  {ansi_styled(bind_url, '1;36', stream=sys.stdout)}")
     print()
     print(f"  auth:          {auth_status}")
     print(f"  uploads:       {upload_status}")
@@ -293,6 +363,7 @@ def build_config(args: argparse.Namespace, directory: Path) -> Config:
         max_zip_size=max_zip_size * 1024 * 1024,
         enable_upload=enable_upload,
         banner=args.banner,
+        public_url=_resolve_public_url(args),
     )
 
 
