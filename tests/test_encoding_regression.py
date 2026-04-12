@@ -18,6 +18,7 @@ from zipfile import ZipFile
 from neev.auth import LoginRateLimiter, SessionStore
 from neev.config import Config
 from neev.fs import FileEntry
+from neev.html import render_directory_listing
 from neev.html_entries import entry_href, render_entry_row
 from neev.html_nav import render_breadcrumb_html
 from neev.server import NeevHandler
@@ -57,6 +58,28 @@ class TestEntryHrefHtmlInjection:
         assert m is not None
         href_val = m.group(1)
         assert '"' not in href_val
+
+
+# -- Finding #7: zip_href in Alpine single-quoted JS literal ----------------
+
+
+class TestZipHrefJsEscape:
+    """Finding #7 — zip_href was html.escape'd but dropped into a JS literal."""
+
+    def test_single_quote_in_path_does_not_break_js_literal(self, tmp_path):
+        """A directory named with an apostrophe must not close the JS string early."""
+        (tmp_path / "it's").mkdir()
+        page = render_directory_listing(
+            path=tmp_path / "it's",
+            entries=[],
+            base_dir=tmp_path,
+            request_path="/it's/",
+            enable_zip_download=True,
+        )
+        # The apostrophe must appear as a JS-escape sequence inside the
+        # submitZip('...') argument — raw ' would close the literal and
+        # the subsequent argument would become an unterminated string.
+        assert "submitZip('/it\\&#x27;s" in page
 
 
 # -- Finding #6: </script> in paths must not break preview pages ------------
