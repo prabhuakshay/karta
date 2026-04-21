@@ -2,6 +2,8 @@
 
 from unittest.mock import patch
 
+import pytest
+
 from neev.cli import _build_parser, main
 from neev.cli_validators import build_config
 
@@ -71,3 +73,47 @@ class TestMain:
         assert f"Serving {tmp_path.resolve()}" in output
         assert "http://127.0.0.1:8000" in output
         mock_server.assert_called_once()
+
+
+# -- share secret -----------------------------------------------------------
+
+
+class TestShareSecret:
+    def test_autogen_when_unset(self, tmp_path, capsys):
+        parser = _build_parser()
+        args = parser.parse_args([str(tmp_path)])
+        with patch.dict("os.environ", {}, clear=True):
+            config = build_config(args, tmp_path.resolve())
+        assert isinstance(config.share_secret, bytes)
+        assert len(config.share_secret) == 32
+        err = capsys.readouterr().err
+        assert "no share-secret" in err
+
+    def test_toml_hex_secret_is_decoded(self, tmp_path):
+        parser = _build_parser()
+        args = parser.parse_args([str(tmp_path)])
+        args.share_secret = "ab" * 32  # valid hex, 32 bytes
+        with patch.dict("os.environ", {}, clear=True):
+            config = build_config(args, tmp_path.resolve())
+        assert config.share_secret == bytes.fromhex("ab" * 32)
+
+    def test_invalid_hex_secret_exits(self, tmp_path):
+        parser = _build_parser()
+        args = parser.parse_args([str(tmp_path)])
+        args.share_secret = "not-hex!!!"
+        with pytest.raises(SystemExit):
+            build_config(args, tmp_path.resolve())
+
+    def test_short_secret_exits(self, tmp_path):
+        parser = _build_parser()
+        args = parser.parse_args([str(tmp_path)])
+        args.share_secret = "abcd"
+        with pytest.raises(SystemExit):
+            build_config(args, tmp_path.resolve())
+
+    def test_non_string_secret_exits(self, tmp_path):
+        parser = _build_parser()
+        args = parser.parse_args([str(tmp_path)])
+        args.share_secret = 12345
+        with pytest.raises(SystemExit):
+            build_config(args, tmp_path.resolve())
