@@ -6,7 +6,7 @@ same pattern as ``server_upload`` and ``server_assets``. Extracted from
 """
 
 from http.server import BaseHTTPRequestHandler
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, unquote, urlparse
 
 from neev.auth import (
     COOKIE_NAME,
@@ -18,6 +18,32 @@ from neev.auth import (
 from neev.config import Config
 from neev.html_login import render_login_page
 from neev.server_utils import send_error
+from neev.share import path_in_scope, verify
+
+
+def check_share_token(handler: BaseHTTPRequestHandler, config: Config) -> bool | None:
+    """Validate a ``?share=...`` token against the incoming request.
+
+    Returns ``True`` when the token is valid and the request is within
+    the payload's scope and allowed for this HTTP method, ``False`` when
+    a token was presented but failed any check (caller should send 403
+    and skip the normal auth fallback), or ``None`` when no token was
+    presented (caller should run normal auth).
+    """
+    if config.share_secret is None:
+        return None
+    parsed = urlparse(handler.path)
+    if "share=" not in (parsed.query or ""):
+        return None
+    query = parse_qs(parsed.query, keep_blank_values=True)
+    raw_token = query.get("share", [""])[0]
+    payload = verify(raw_token, config.share_secret)
+    if payload is None:
+        return False
+    request_path = unquote(parsed.path)
+    if not path_in_scope(request_path, payload.path):
+        return False
+    return not (handler.command == "POST" and not payload.write_allowed)
 
 
 def _is_secure_context(handler: BaseHTTPRequestHandler) -> bool:

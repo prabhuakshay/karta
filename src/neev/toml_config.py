@@ -29,6 +29,7 @@ _KEY_MAP = {
     "enable-upload": "enable_upload",
     "read-only": "read_only",
     "public-url": "public_url",
+    "share-secret": "share_secret",
 }
 
 

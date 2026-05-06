@@ -17,7 +17,7 @@ from neev.config import Config
 from neev.fs import get_mime_type, is_markdown_file, is_previewable_type, resolve_safe_path
 from neev.log import ansi_styled, status_color
 from neev.server_assets import serve_favicon, serve_static
-from neev.server_auth import handle_login, handle_logout, serve_login_page
+from neev.server_auth import check_share_token, handle_login, handle_logout, serve_login_page
 from neev.server_core import serve_directory, serve_file, serve_zip
 from neev.server_preview import serve_generic_preview, serve_markdown_preview
 from neev.server_upload import serve_mkdir, serve_upload
@@ -88,6 +88,13 @@ class NeevHandler(BaseHTTPRequestHandler):
             ``True`` if the request may proceed. ``False`` if a redirect
             or 401 was sent (caller should return immediately).
         """
+        share_ok = check_share_token(self, self.config)
+        if share_ok is True:
+            return True
+        if share_ok is False:
+            send_error(self, 403, "Forbidden")
+            return False
+
         if self._is_authenticated():
             return True
 

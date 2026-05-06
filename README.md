@@ -120,6 +120,7 @@ Open the URL printed on startup. You'll see a file browser. If auth is enabled, 
 
 ```
 neev [DIRECTORY] [OPTIONS]
+neev share <PATH> [--expires SECONDS] [--write] [-d DIRECTORY]
 ```
 
 ### Positional arguments
@@ -158,6 +159,19 @@ neev ./code --host 0.0.0.0 --auth me:pw --show-hidden --banner "Internal only"
 # Raise ZIP size cap to 500 MB
 neev ./data --enable-zip-download --max-zip-size 500
 ```
+
+### `neev share` subcommand
+
+Mint a signed, time-limited URL that grants scoped access to one file or folder. See the [share recipe](#share-a-file-with-an-expiring-link) for the full flow.
+
+| Argument / flag | Default | Description |
+|-----------------|---------|-------------|
+| `path` | — | File or folder under the served directory. |
+| `-d`, `--directory` | `.` | Served directory — the scope that gives `path` meaning. |
+| `--expires SECONDS` | `86400` | Token validity window in seconds. |
+| `--write` | off | Token authorizes POST/upload. Server must still have `--enable-upload`. |
+
+The secret is read from `neev.toml`'s `share-secret` key; if unset, one is generated per invocation and printed to stderr.
 
 ---
 
@@ -201,6 +215,7 @@ banner = "Build artifacts — ask #devops for access"
 | `read-only` | bool | Same as `--read-only`. |
 | `banner` | string | Same as `--banner`. |
 | `public-url` | string | Same as `--public-url`. |
+| `share-secret` | string | Hex-encoded HMAC key (≥ 32 bytes after decode) for `neev share` tokens. Auto-generated if unset. |
 
 **Denied keys:** `directory` is never read from TOML (the served directory is always set by CLI, to avoid surprise path changes).
 
@@ -398,6 +413,41 @@ neev ~/inbox --host 0.0.0.0 --auth sender:pw --enable-upload
 ```bash
 neev ./docs --enable-zip-download --banner "Project docs"
 ```
+
+### Share a file with an expiring link
+
+Hand someone a URL that lets them fetch one file (or browse one folder) without handing out your password. The link carries an HMAC signed with your server's `share-secret`, a path scope, and an expiry.
+
+```bash
+# First, pin a share-secret so tokens survive restarts.
+# Generate 32 random bytes of hex and add to neev.toml:
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+```toml
+# neev.toml
+share-secret = "abc...paste-your-hex-here..."
+public-url   = "https://share.example.com"   # so generated URLs are externally reachable
+```
+
+Then ask neev to mint a URL:
+
+```bash
+# 2 hours of read access to one file
+neev share ./releases/v1.zip --expires 7200
+# → https://share.example.com/releases/v1.zip?share=<token>
+
+# Folder-scoped token: covers every file under ./public-builds for a day
+neev share ./public-builds --expires 86400
+
+# Drop-off link: lets the recipient upload into ./inbox for 30 minutes
+neev share ./inbox --expires 1800 --write
+# (only works if the server is run with --enable-upload)
+```
+
+Tokens are self-contained — the server does not keep any per-token state. An expired token returns `403`, a tampered token returns `403`, and a token for `/releases` will not grant access to `/releases-private`. Rotate `share-secret` in `neev.toml` to invalidate every outstanding token at once.
+
+If `share-secret` is not set, neev generates one at startup and prints it to stderr — fine for a one-off share session, but any restart invalidates every link.
 
 ### Behind Caddy with TLS
 

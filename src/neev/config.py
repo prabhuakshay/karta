@@ -31,6 +31,8 @@ class Config:
             or ``None`` when the bind URL is also the public URL. Trailing
             slash is stripped at parse so callers can safely concatenate
             ``public_url + "/path"``.
+        share_secret: Server-side HMAC key used to sign and verify share
+            tokens. ``None`` means share-link auth is disabled.
         auth_enabled: Whether HTTP Basic Auth is active (computed at init).
     """
 
@@ -45,6 +47,7 @@ class Config:
     enable_upload: bool
     banner: str | None = None
     public_url: str | None = None
+    share_secret: bytes | None = None
     auth_enabled: bool = False
 
     def __post_init__(self) -> None:
