@@ -30,6 +30,14 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="neev",
         description="Serve a local directory over HTTP with auth, file browsing, and downloads.",
+        epilog=(
+            "Subcommands:\n"
+            "  neev share <PATH> [--expires SECONDS] [--write]\n"
+            "      Mint a signed, time-limited share URL. See `neev share --help`.\n"
+            "      Note: a directory literally named 'share' cannot be served via\n"
+            "      `neev share` — pass it as `neev ./share` instead.\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "directory",

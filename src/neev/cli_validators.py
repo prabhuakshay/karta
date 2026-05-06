@@ -5,9 +5,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from neev.cli_banner import _print_error, _print_warning
+from neev.cli_banner import _print_error
 from neev.config import Config
-from neev.share import generate_secret, parse_secret_hex
+from neev.share import parse_secret_hex
 
 
 # Real defaults live here (not on the parser). The parser uses ``None`` as a
@@ -96,30 +96,25 @@ def _validate_public_url(raw: str) -> str:
     return candidate.rstrip("/")
 
 
-def _resolve_share_secret(args: argparse.Namespace) -> bytes:
+def _resolve_share_secret(args: argparse.Namespace) -> bytes | None:
     """Resolve the server's share-link HMAC secret.
 
-    If ``share-secret`` was set via TOML, decode it from hex. Otherwise
-    generate a fresh one and print it to stderr so the operator can pin
-    it in ``neev.toml`` if they want tokens to survive a restart.
+    Share-link auth is opt-in: only when ``share-secret`` is set in
+    ``neev.toml`` does the server accept ``?share=...`` tokens. Returning
+    ``None`` here keeps the feature dormant.
 
     Args:
         args: Parsed CLI arguments (post-TOML-merge).
 
     Returns:
-        The secret bytes.
+        The secret bytes, or ``None`` when share-link auth is disabled.
 
     Raises:
         SystemExit: If a configured ``share-secret`` is not valid hex.
     """
     raw = getattr(args, "share_secret", None)
     if raw is None:
-        generated = generate_secret()
-        _print_warning(
-            f"no share-secret configured; generated ephemeral one: {generated.hex()} "
-            '(pin it in neev.toml as share-secret = "..." to survive restarts)'
-        )
-        return generated
+        return None
     if not isinstance(raw, str):
         _print_error("share-secret in neev.toml must be a hex-encoded string")
         raise SystemExit(1)

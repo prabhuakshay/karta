@@ -141,6 +141,13 @@ class TestShareRead:
         status, _ = _request(f"{base}/releases/v1.zip?share={quote(bad)}")
         assert status == 403
 
+    def test_file_scoped_token_rejects_descendant_path(self, server_runtime):
+        base, _ = server_runtime
+        token = sign("/releases/v1.zip", int(time.time()) + 60, False, SECRET, file_scope=True)
+        # /releases/v1.zip/anything would 404 anyway, but we want auth to fail first.
+        status, _ = _request(f"{base}/releases/v1.zip/extra?share={token}")
+        assert status == 403
+
 
 # -- write access ------------------------------------------------------------
 

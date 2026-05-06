@@ -31,6 +31,10 @@ logger = logging.getLogger(__name__)
 # nothing meaningful against HMAC-SHA256.
 _SECRET_BYTES = 32
 
+# A well-formed token is ~150 bytes. Anything materially larger is either
+# garbage or someone testing the parser; reject early.
+_MAX_TOKEN_LEN = 4096
+
 
 @dataclass(frozen=True)
 class SharePayload:
@@ -41,11 +45,15 @@ class SharePayload:
             with ``/``. May refer to a file or a directory prefix.
         expires_at: Expiry as a Unix epoch timestamp (seconds).
         write_allowed: Whether the token grants POST/upload permission.
+        file_scope: When ``True``, the token authorizes only the exact
+            ``path`` (file mode). When ``False``, it authorizes ``path``
+            and any descendant (folder mode).
     """
 
     path: str
     expires_at: int
     write_allowed: bool
+    file_scope: bool = False
 
 
 def generate_secret() -> bytes:
@@ -98,7 +106,14 @@ def _normalize_path(path: str) -> str:
     return path
 
 
-def sign(path: str, expires_at: int, write_allowed: bool, secret: bytes) -> str:
+def sign(
+    path: str,
+    expires_at: int,
+    write_allowed: bool,
+    secret: bytes,
+    *,
+    file_scope: bool = False,
+) -> str:
     """Create a signed share token for the given scope.
 
     Args:
@@ -106,11 +121,20 @@ def sign(path: str, expires_at: int, write_allowed: bool, secret: bytes) -> str:
         expires_at: Expiry as Unix epoch seconds.
         write_allowed: Whether POSTs are permitted under this token.
         secret: The server's share secret.
+        file_scope: If ``True``, the token only authorizes the exact path
+            (no descendant lookup). Use for file-scoped tokens so e.g.
+            ``/file.txt`` cannot grant access to ``/file.txt/anything``.
 
     Returns:
         The ``payload.hmac`` token string.
     """
-    payload = {"p": _normalize_path(path), "e": int(expires_at), "w": bool(write_allowed)}
+    payload: dict[str, object] = {
+        "p": _normalize_path(path),
+        "e": int(expires_at),
+        "w": bool(write_allowed),
+    }
+    if file_scope:
+        payload["f"] = True
     payload_bytes = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
     mac = hmac.new(secret, payload_bytes, sha256).digest()
     return f"{_b64url_encode(payload_bytes)}.{_b64url_encode(mac)}"
@@ -133,7 +157,7 @@ def verify(token: str, secret: bytes, now: int | None = None) -> SharePayload | 
         The decoded ``SharePayload`` if the token is valid and unexpired,
         otherwise ``None``.
     """
-    if not token or "." not in token:
+    if not token or "." not in token or len(token) > _MAX_TOKEN_LEN:
         return None
     payload_b64, mac_b64 = token.rsplit(".", maxsplit=1)
     if not payload_b64 or not mac_b64:
@@ -159,9 +183,10 @@ def verify(token: str, secret: bytes, now: int | None = None) -> SharePayload | 
     path = data.get("p")
     expires_at = data.get("e")
     write_allowed = data.get("w", False)
+    file_scope = data.get("f", False)
     if not isinstance(path, str) or not isinstance(expires_at, int) or isinstance(expires_at, bool):
         return None
-    if not isinstance(write_allowed, bool):
+    if not isinstance(write_allowed, bool) or not isinstance(file_scope, bool):
         return None
 
     current = int(time.time()) if now is None else now
@@ -172,23 +197,28 @@ def verify(token: str, secret: bytes, now: int | None = None) -> SharePayload | 
         path=_normalize_path(path),
         expires_at=expires_at,
         write_allowed=write_allowed,
+        file_scope=file_scope,
     )
 
 
-def path_in_scope(request_path: str, scope: str) -> bool:
+def path_in_scope(request_path: str, scope: str, *, file_scope: bool = False) -> bool:
     """Check whether a request path is covered by a token's scope.
 
-    Uses exact match or ``scope + "/"`` prefix match so ``/releases`` does
-    not accidentally grant access to ``/releases-private``.
+    Uses exact match for file-scoped tokens, otherwise exact match or
+    ``scope + "/"`` prefix match. The prefix form deliberately rejects
+    ``/releases-private`` for a token scoped to ``/releases``.
 
     Args:
         request_path: The path from the incoming request (URL-decoded).
         scope: The ``p`` field from a verified payload.
+        file_scope: When ``True``, only an exact path match is accepted.
 
     Returns:
         ``True`` if the request is within scope.
     """
     normalized = _normalize_path(request_path)
+    if file_scope:
+        return normalized == scope
     if scope == "/":
         return True
     return normalized == scope or normalized.startswith(scope + "/")

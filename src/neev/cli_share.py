@@ -116,10 +116,19 @@ def share_main(argv: list[str]) -> None:
         merge_toml_into_args(server_args, user_data)
     config = build_config(server_args, directory)
 
+    if config.share_secret is None:
+        _print_error(
+            "share-secret is not configured. Add a hex-encoded key to neev.toml:\n"
+            '    share-secret = "<64-hex-chars>"\n'
+            'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
+        )
+        raise SystemExit(1)
+
     target = args.path if args.path.is_absolute() else (directory / args.path).resolve()
     url_path = _url_path_for(target, directory)
+    is_file = target.is_file()
     expires_at = int(time.time()) + args.expires
-    token = sign(url_path, expires_at, args.write, config.share_secret or b"")
+    token = sign(url_path, expires_at, args.write, config.share_secret, file_scope=is_file)
     base = _base_url(config.host, config.port, config.public_url)
     print(build_share_url(base, url_path, token))
     if not config.public_url:

@@ -1,5 +1,6 @@
 """HTTP server and request handler for neev."""
 
+import re
 import sys
 from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -24,6 +25,19 @@ from neev.server_upload import serve_mkdir, serve_upload
 from neev.server_utils import send_error
 from neev.server_zip import serve_selective_zip
 from neev.url_utils import is_valid_header_value
+
+
+_SHARE_TOKEN_RE = re.compile(r"([?&])share=[^&#]*")
+
+
+def _redact_share(path: str) -> str:
+    """Replace any ``share=<token>`` value in a URL path with a placeholder.
+
+    The token is a bearer credential — anyone reading a log line that
+    contains it can reuse the URL until it expires. Logs and bug reports
+    should never carry the live value.
+    """
+    return _SHARE_TOKEN_RE.sub(r"\1share=<redacted>", path)
 
 
 # -- Request handler -------------------------------------------------------
@@ -247,7 +261,7 @@ class NeevHandler(BaseHTTPRequestHandler):
         if self.path == "/favicon.svg":
             return
         method = ansi_styled(self.command or "?", "1")
-        path = ansi_styled(self.path, "36")
+        path = ansi_styled(_redact_share(self.path), "36")
         status = status_color(int(code)) if str(code).isdigit() else str(code)
         print(f"  {method} {path} {status}", file=sys.stderr)
 
