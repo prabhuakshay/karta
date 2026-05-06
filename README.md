@@ -171,7 +171,7 @@ Mint a signed, time-limited URL that grants scoped access to one file or folder.
 | `--expires SECONDS` | `86400` | Token validity window in seconds. |
 | `--write` | off | Token authorizes POST/upload. Server must still have `--enable-upload`. |
 
-The secret is read from `neev.toml`'s `share-secret` key; if unset, one is generated per invocation and printed to stderr.
+The secret is read from `neev.toml`'s `share-secret` key. It is required — `neev share` errors out if no secret is configured, since an ephemeral one would not match the running server's secret.
 
 ---
 
@@ -215,7 +215,7 @@ banner = "Build artifacts — ask #devops for access"
 | `read-only` | bool | Same as `--read-only`. |
 | `banner` | string | Same as `--banner`. |
 | `public-url` | string | Same as `--public-url`. |
-| `share-secret` | string | Hex-encoded HMAC key (≥ 32 bytes after decode) for `neev share` tokens. Auto-generated if unset. |
+| `share-secret` | string | Hex-encoded HMAC key (≥ 32 bytes after decode) for `neev share` tokens. Required to enable share-link auth — leave unset to disable the feature. |
 
 **Denied keys:** `directory` is never read from TOML (the served directory is always set by CLI, to avoid surprise path changes).
 
@@ -447,7 +447,12 @@ neev share ./inbox --expires 1800 --write
 
 Tokens are self-contained — the server does not keep any per-token state. An expired token returns `403`, a tampered token returns `403`, and a token for `/releases` will not grant access to `/releases-private`. Rotate `share-secret` in `neev.toml` to invalidate every outstanding token at once.
 
-If `share-secret` is not set, neev generates one at startup and prints it to stderr — fine for a one-off share session, but any restart invalidates every link.
+Share-link auth is opt-in: `neev share` (and the server's token check) requires `share-secret` set in `neev.toml`. Without it, `neev share` exits with a clear error rather than silently minting tokens that won't validate against a separately-running server.
+
+**Treat the URL as a bearer credential.** Anyone with the link has the access it grants until expiry. A few practical notes:
+- The token sits in the query string. If the recipient opens the URL in a browser and clicks an external link, the `Referer` header may carry `?share=...` to that third party. Prefer short `--expires` for browser-facing links, or instruct recipients to use `curl`/`wget`.
+- neev redacts `share=` values in its own request log, but TLS-terminating proxies, browser history, and any server access log between you and the recipient will not. Put neev behind HTTPS for any non-LAN use.
+- File-scoped tokens (minted for a single file) only authorize that exact path. Folder-scoped tokens authorize every file underneath the folder — pick the smaller scope when possible.
 
 ### Behind Caddy with TLS
 

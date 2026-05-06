@@ -79,15 +79,14 @@ class TestMain:
 
 
 class TestShareSecret:
-    def test_autogen_when_unset(self, tmp_path, capsys):
+    def test_unset_leaves_share_disabled(self, tmp_path, capsys):
         parser = _build_parser()
         args = parser.parse_args([str(tmp_path)])
         with patch.dict("os.environ", {}, clear=True):
             config = build_config(args, tmp_path.resolve())
-        assert isinstance(config.share_secret, bytes)
-        assert len(config.share_secret) == 32
-        err = capsys.readouterr().err
-        assert "no share-secret" in err
+        assert config.share_secret is None
+        # No noisy auto-gen warning when the feature is dormant.
+        assert capsys.readouterr().err == ""
 
     def test_toml_hex_secret_is_decoded(self, tmp_path):
         parser = _build_parser()

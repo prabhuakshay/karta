@@ -41,7 +41,7 @@ def check_share_token(handler: BaseHTTPRequestHandler, config: Config) -> bool |
     if payload is None:
         return False
     request_path = unquote(parsed.path)
-    if not path_in_scope(request_path, payload.path):
+    if not path_in_scope(request_path, payload.path, file_scope=payload.file_scope):
         return False
     return not (handler.command == "POST" and not payload.write_allowed)
 

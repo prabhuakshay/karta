@@ -133,6 +133,17 @@ def test_payload_write_wrong_type_rejected(secret: bytes) -> None:
     assert verify(_forge(secret, raw), secret) is None
 
 
+def test_payload_file_scope_wrong_type_rejected(secret: bytes) -> None:
+    raw = json.dumps({"p": "/x", "e": int(time.time()) + 60, "w": False, "f": "yes"}).encode()
+    assert verify(_forge(secret, raw), secret) is None
+
+
+def test_oversized_token_rejected(secret: bytes) -> None:
+    token = sign("/x", int(time.time()) + 60, False, secret)
+    bloated = token + "A" * 5000
+    assert verify(bloated, secret) is None
+
+
 def test_verify_now_override(secret: bytes) -> None:
     exp = 2_000_000_000
     token = sign("/x", exp, False, secret)
@@ -161,6 +172,26 @@ def test_verify_now_override(secret: bytes) -> None:
 )
 def test_path_in_scope(request_path: str, scope: str, expected: bool) -> None:
     assert path_in_scope(request_path, scope) is expected
+
+
+def test_file_scope_requires_exact_match() -> None:
+    assert path_in_scope("/file.txt", "/file.txt", file_scope=True) is True
+    assert path_in_scope("/file.txt/anything", "/file.txt", file_scope=True) is False
+    assert path_in_scope("/other", "/file.txt", file_scope=True) is False
+
+
+def test_sign_file_scope_roundtrip(secret: bytes) -> None:
+    token = sign("/file.txt", int(time.time()) + 60, False, secret, file_scope=True)
+    payload = verify(token, secret)
+    assert payload is not None
+    assert payload.file_scope is True
+
+
+def test_sign_default_scope_is_folder(secret: bytes) -> None:
+    token = sign("/dir", int(time.time()) + 60, False, secret)
+    payload = verify(token, secret)
+    assert payload is not None
+    assert payload.file_scope is False
 
 
 # -- secret helpers -----------------------------------------------------------
